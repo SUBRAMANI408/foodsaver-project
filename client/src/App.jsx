@@ -41,6 +41,8 @@ import DeliveryDashboard from './pages/delivery/DeliveryDashboard';
 
 // Pages - Helping Center
 import HelpingCenterDashboard from './pages/helpingcenter/HelpingCenterDashboard';
+import HelpingCenterRequirements from './pages/helpingcenter/HelpingCenterRequirements';
+import MerchantSponsorships from './pages/merchant/MerchantSponsorships';
 
 // Misc
 import NotificationsPage from './pages/NotificationsPage';
@@ -150,7 +152,7 @@ export default function App() {
           <Route path="orders" element={<MerchantOrders />} />
           <Route path="analytics" element={<MerchantAnalytics />} />
           <Route path="profile" element={<MerchantProfile />} />
-          <Route path="donations" element={<div className="text-slate-400 p-4">Donations page coming soon...</div>} />
+          <Route path="donations" element={<MerchantSponsorships />} />
           <Route path="reviews" element={<div className="text-slate-400 p-4">Reviews page coming soon...</div>} />
         </Route>
 
@@ -179,7 +181,8 @@ export default function App() {
         {/* Helping Center Dashboard */}
         <Route path="/helping-center" element={<PrivateRoute allowedRoles={['helping_center']}><DashboardLayout /></PrivateRoute>}>
           <Route index element={<HelpingCenterDashboard />} />
-          <Route path="donations" element={<div className="text-slate-400 p-4">Donations coming soon...</div>} />
+          <Route path="donations" element={<HelpingCenterRequirements />} />
+          <Route path="requirements" element={<HelpingCenterRequirements />} />
           <Route path="inventory" element={<div className="text-slate-400 p-4">Inventory coming soon...</div>} />
           <Route path="reports" element={<div className="text-slate-400 p-4">Reports coming soon...</div>} />
         </Route>

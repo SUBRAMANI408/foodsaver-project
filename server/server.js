@@ -19,6 +19,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import merchantRoutes from './routes/merchantRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import requirementRoutes from './routes/requirementRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { setupSockets } from './sockets/socketHandler.js';
 
@@ -79,6 +80,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/merchants', merchantRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/requirements', requirementRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

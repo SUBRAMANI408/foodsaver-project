@@ -11,7 +11,10 @@ export const getFoodItems = async (req, res, next) => {
       lat, lng, radius = 10, search, sort = '-createdAt', page = 1, limit = 20
     } = req.query;
 
-    const query = { status: { $in: ['available', 'expiring_soon'] } };
+    const query = { 
+      status: { $in: ['available', 'expiring_soon'] },
+      expiryTime: { $gt: new Date() }
+    };
 
     if (status && status !== 'all') query.status = status;
     if (category) query.category = category;
@@ -192,7 +195,10 @@ export const donateFoodItem = async (req, res, next) => {
 // @route   GET /api/food/trending
 export const getTrendingFood = async (req, res, next) => {
   try {
-    const items = await FoodItem.find({ status: { $in: ['available', 'expiring_soon'] } })
+    const items = await FoodItem.find({ 
+      status: { $in: ['available', 'expiring_soon'] },
+      expiryTime: { $gt: new Date() }
+    })
       .sort('-totalSold -rating')
       .limit(10)
       .populate('merchant', 'businessName logo rating');

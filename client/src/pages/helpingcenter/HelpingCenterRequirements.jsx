@@ -11,7 +11,6 @@ import {
   fetchMyRequirements,
   createRequirementThunk,
   acceptSponsorshipThunk,
-  cancelRequirement as cancelReqThunk,
   clearMsg,
 } from '../../redux/slices/requirementSlice';
 

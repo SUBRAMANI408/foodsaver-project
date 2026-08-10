@@ -18,7 +18,7 @@ export const fetchConversations = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get('/chat/conversations');
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch conversations');
     }
@@ -30,7 +30,7 @@ export const fetchMessages = createAsyncThunk(
   async (conversationId, { rejectWithValue }) => {
     try {
       const response = await api.get(`/chat/messages/${conversationId}`);
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch messages');
     }
@@ -50,7 +50,7 @@ export const sendMessage = createAsyncThunk(
         metadata,
         requirementId
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to send message');
     }
@@ -67,7 +67,7 @@ export const shareAddress = createAsyncThunk(
         receiverModel,
         requirementId
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to share address');
     }
@@ -79,7 +79,7 @@ export const fetchUnreadCount = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get('/chat/unread-count');
-      return response.data.unreadCount;
+      return response.data.data.count;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch unread count');
     }

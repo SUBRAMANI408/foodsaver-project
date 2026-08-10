@@ -151,23 +151,24 @@ export default function ChatPage() {
     if (parts.length >= 4) {
       const ngoId = parts[2];
       const merchantId = parts[3];
-      return currentUser.role === 'merchant' ? ngoId : merchantId;
+      return currentUser?.role === 'merchant' ? ngoId : merchantId;
     }
     return null;
   };
 
   const getOtherPartyDetails = () => {
-    const otherPartyId = getOtherParty(activeConversation);
-    // Ideally the API would provide name and avatar in the conversation list, 
-    // we'll try to find it from participants array if available
+    const otherParty = getOtherParty(activeConversation);
+    const isPopulatedObject = typeof otherParty === 'object' && otherParty !== null;
+    const otherPartyId = isPopulatedObject ? (otherParty._id || otherParty.id) : otherParty;
+    
     const participant = activeConversation?.participants?.find(p => p._id === otherPartyId || p.userId === otherPartyId);
     
     return {
       id: otherPartyId,
-      name: participant?.name || participant?.businessName || 'User',
-      avatar: participant?.avatar,
-      isOnline: onlineUsers[otherPartyId] || false,
-      model: currentUser.role === 'merchant' ? 'HelpingCenter' : 'Merchant'
+      name: participant?.name || participant?.businessName || (isPopulatedObject ? (otherParty.centerName || otherParty.businessName || otherParty.name) : null) || 'User',
+      avatar: participant?.avatar || (isPopulatedObject ? otherParty.logo : null),
+      isOnline: otherPartyId ? (onlineUsers[otherPartyId] || false) : false,
+      model: currentUser?.role === 'merchant' ? 'HelpingCenter' : 'Merchant'
     };
   };
 

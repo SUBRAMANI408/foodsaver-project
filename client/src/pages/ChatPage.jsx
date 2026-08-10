@@ -21,6 +21,32 @@ import {
   clearChat 
 } from '../redux/slices/chatSlice';
 
+class ChatErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ChatRenderError:", error, errorInfo);
+    this.setState({ errorInfo });
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 m-8 bg-red-50 border border-red-200 rounded-xl text-red-800">
+          <h2 className="text-xl font-bold mb-4">Chat Interface Crashed</h2>
+          <p className="font-medium">{this.state.error && this.state.error.toString()}</p>
+          <pre className="mt-4 text-xs overflow-auto bg-white p-4 rounded border">{this.state.errorInfo?.componentStack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function ChatPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -325,32 +351,6 @@ export default function ChatPage() {
   const activeOtherPartyDetails = getOtherPartyDetails();
   const convId = activeConversation?.conversationId || activeConversation?._id;
   const isTyping = convId && typingUsers[convId]?.[activeOtherPartyDetails.id];
-
-class ChatErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, errorInfo) {
-    console.error("ChatRenderError:", error, errorInfo);
-    this.setState({ errorInfo });
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-8 m-8 bg-red-50 border border-red-200 rounded-xl text-red-800">
-          <h2 className="text-xl font-bold mb-4">Chat Interface Crashed</h2>
-          <p className="font-medium">{this.state.error && this.state.error.toString()}</p>
-          <pre className="mt-4 text-xs overflow-auto bg-white p-4 rounded border">{this.state.errorInfo?.componentStack}</pre>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
   return (
     <ChatErrorBoundary>

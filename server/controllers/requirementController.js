@@ -4,6 +4,7 @@ import Merchant from '../models/Merchant.js';
 import HelpingCenter from '../models/HelpingCenter.js';
 import Notification from '../models/Notification.js';
 import ChatMessage from '../models/ChatMessage.js';
+import FoodItem from '../models/FoodItem.js';
 
 // ─── NGO: Create a Food Requirement ───────────────────────────────────────────
 // POST /api/requirements
@@ -251,6 +252,20 @@ export const rejectSponsorship = async (req, res, next) => {
     sponsorship.status = 'rejected';
     sponsorship.rejectedAt = new Date();
     sponsorship.rejectionReason = reason || '';
+    
+    // Inventory restoration for rejected sponsorship
+    if (sponsorship.foodItems && sponsorship.foodItems.length > 0) {
+      for (let item of sponsorship.foodItems) {
+        if (item.foodId) {
+          const food = await FoodItem.findById(item.foodId);
+          if (food) {
+            food.availableQuantity += item.quantity;
+            await food.save();
+          }
+        }
+      }
+    }
+    
     await sponsorship.save();
 
     // Notify merchant
@@ -327,7 +342,7 @@ export const getNearbyRequirements = async (req, res, next) => {
 // POST /api/requirements/:id/sponsor
 export const submitSponsorship = async (req, res, next) => {
   try {
-    const { quantityOffered, notes } = req.body;
+    const { quantityOffered, notes, foodItems } = req.body;
     const requirement = await FoodRequirement.findById(req.params.id);
 
     if (!requirement) {
@@ -343,10 +358,46 @@ export const submitSponsorship = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'You have already submitted a sponsorship for this requirement' });
     }
 
+    let processedFoodItems = [];
+    if (foodItems && Array.isArray(foodItems)) {
+      for (const item of foodItems) {
+        if (item.foodId) {
+          const food = await FoodItem.findById(item.foodId);
+          if (food) {
+            if (food.availableQuantity < item.quantity) {
+              return res.status(400).json({ success: false, message: `Insufficient quantity for ${food.name}` });
+            }
+            const pricePerUnit = food.originalPrice;
+            const discountPercentage = item.discountPercentage || 0;
+            const finalPricePerUnit = pricePerUnit - (pricePerUnit * discountPercentage / 100);
+            const totalAmount = finalPricePerUnit * item.quantity;
+            
+            food.availableQuantity -= item.quantity;
+            await food.save();
+            
+            processedFoodItems.push({
+              foodId: food._id,
+              name: food.name,
+              quantity: item.quantity,
+              unit: food.unit || 'meals',
+              pricePerUnit,
+              discountPercentage,
+              finalPricePerUnit,
+              totalAmount
+            });
+          }
+        } else {
+          // Backward compatibility
+          processedFoodItems.push(item);
+        }
+      }
+    }
+
     const sponsorship = await Sponsorship.create({
       requirement: req.params.id,
       merchant: req.userId,
       quantityOffered: parseInt(quantityOffered),
+      foodItems: processedFoodItems,
       notes: notes || '',
     });
 
@@ -393,7 +444,63 @@ export const editSponsorship = async (req, res, next) => {
     }
     
     if (quantityOffered) sponsorship.quantityOffered = parseInt(quantityOffered);
-    if (foodItems) sponsorship.foodItems = JSON.parse(typeof foodItems === 'string' ? foodItems : JSON.stringify(foodItems));
+    if (foodItems) {
+      const parsedItems = typeof foodItems === 'string' ? JSON.parse(foodItems) : foodItems;
+      const oldItems = sponsorship.foodItems || [];
+      
+      let processedFoodItems = [];
+      for (const newItem of parsedItems) {
+        if (newItem.foodId) {
+          const food = await FoodItem.findById(newItem.foodId);
+          if (food) {
+            const oldItem = oldItems.find(i => i.foodId && i.foodId.toString() === newItem.foodId.toString());
+            const oldQuantity = oldItem ? oldItem.quantity : 0;
+            const difference = newItem.quantity - oldQuantity;
+            
+            if (difference > 0) {
+              if (food.availableQuantity < difference) {
+                return res.status(400).json({ success: false, message: `Insufficient quantity for ${food.name}` });
+              }
+              food.availableQuantity -= difference;
+            } else if (difference < 0) {
+              food.availableQuantity += Math.abs(difference);
+            }
+            await food.save();
+            
+            const pricePerUnit = food.originalPrice;
+            const discountPercentage = newItem.discountPercentage !== undefined ? newItem.discountPercentage : (oldItem ? oldItem.discountPercentage : 0);
+            const finalPricePerUnit = pricePerUnit - (pricePerUnit * discountPercentage / 100);
+            const totalAmount = finalPricePerUnit * newItem.quantity;
+            
+            processedFoodItems.push({
+              foodId: food._id,
+              name: food.name,
+              quantity: newItem.quantity,
+              unit: food.unit || 'meals',
+              pricePerUnit,
+              discountPercentage,
+              finalPricePerUnit,
+              totalAmount
+            });
+          }
+        } else {
+          processedFoodItems.push(newItem);
+        }
+      }
+      
+      // Handle removed items
+      for (const oldItem of oldItems) {
+        if (oldItem.foodId && !parsedItems.some(i => i.foodId && i.foodId.toString() === oldItem.foodId.toString())) {
+          const food = await FoodItem.findById(oldItem.foodId);
+          if (food) {
+            food.availableQuantity += oldItem.quantity;
+            await food.save();
+          }
+        }
+      }
+      
+      sponsorship.foodItems = processedFoodItems;
+    }
     if (notes !== undefined) sponsorship.notes = notes;
     await sponsorship.save();
     
@@ -498,6 +605,25 @@ export const cancelRequirement = async (req, res, next) => {
 
     requirement.status = 'cancelled';
     await requirement.save();
+
+    // Inventory restoration for cancelled requirement
+    const sponsorships = await Sponsorship.find({ requirement: req.params.id, status: { $in: ['pending', 'accepted'] } });
+    for (const sponsorship of sponsorships) {
+      if (sponsorship.foodItems && sponsorship.foodItems.length > 0) {
+        for (let item of sponsorship.foodItems) {
+          if (item.foodId) {
+            const food = await FoodItem.findById(item.foodId);
+            if (food) {
+              food.availableQuantity += item.quantity;
+              await food.save();
+            }
+          }
+        }
+      }
+      sponsorship.status = 'rejected';
+      sponsorship.rejectionReason = 'Requirement cancelled by NGO';
+      await sponsorship.save();
+    }
 
     res.json({ success: true, message: 'Requirement cancelled' });
   } catch (error) {

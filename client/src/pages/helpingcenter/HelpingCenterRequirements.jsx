@@ -126,12 +126,27 @@ function SponsorshipCard({ sp, reqId, onAccept, onRejectClick, onOpenChat, loadi
         {sp.notes && <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 italic">"{sp.notes}"</p>}
         {/* Show food items if any */}
         {sp.foodItems && sp.foodItems.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {sp.foodItems.map((item, i) => (
-              <div key={i} className="text-xs text-slate-500 flex items-center gap-1">
-                <Utensils className="w-3 h-3" />{item.quantity} {item.unit} – {item.name}
-              </div>
-            ))}
+          <div className="mt-2 space-y-2">
+            {sp.foodItems.map((item, i) => {
+              const pricePerUnit = item.price || item.pricePerUnit || 0;
+              const discount = item.discountPercentage || 0;
+              const finalPricePerUnit = item.finalPricePerUnit || (pricePerUnit * (1 - discount/100));
+              const totalAmount = item.totalAmount || (finalPricePerUnit * item.quantity);
+
+              return (
+                <div key={i} className="text-xs text-slate-500 bg-white dark:bg-dark-900 p-2.5 rounded-lg border border-slate-100 dark:border-dark-700">
+                  <div className="flex items-center gap-1 font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <Utensils className="w-3 h-3" />{item.quantity} {item.unit || 'units'} – {item.name}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>Price: ₹{pricePerUnit.toFixed(2)}</span>
+                    {discount > 0 && <span className="text-emerald-600">Discount: {discount}%</span>}
+                    <span>Final: ₹{finalPricePerUnit.toFixed(2)}/unit</span>
+                    <span className="font-bold text-primary-600">Total: ₹{totalAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
         <div className="flex items-center gap-2 mt-2">

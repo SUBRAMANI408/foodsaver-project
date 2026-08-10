@@ -1,10 +1,14 @@
 import mongoose from 'mongoose';
 
 const foodItemSchema = new mongoose.Schema({
+  foodId: { type: mongoose.Schema.Types.ObjectId, ref: 'FoodItem' },
   name: { type: String, required: true },
   quantity: { type: Number, required: true, min: 1 },
-  unit: { type: String, default: 'meals' }, // meals, kg, packets, etc.
-  description: { type: String, default: '' },
+  unit: { type: String, default: 'meals' },
+  pricePerUnit: { type: Number, default: 0 },
+  discountPercentage: { type: Number, default: 0, min: 0, max: 100 },
+  finalPricePerUnit: { type: Number, default: 0 },
+  totalAmount: { type: Number, default: 0 }
 }, { _id: true });
 
 const sponsorshipSchema = new mongoose.Schema({

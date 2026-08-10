@@ -173,10 +173,20 @@ const requirementSlice = createSlice({
       .addCase(acceptSponsorshipThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.successMsg = 'Sponsorship accepted! Chat is now enabled.';
-        const updated = action.payload.requirement;
-        state.myRequirements = state.myRequirements.map((r) =>
-          r._id === updated._id ? { ...r, ...updated } : r
-        );
+        const { requirement: updatedReq, sponsorship: updatedSpons } = action.payload;
+        state.myRequirements = state.myRequirements.map((r) => {
+          if (r._id === updatedReq._id) {
+            const updatedSponsorships = r.sponsorships ? r.sponsorships.map(sp => 
+              sp._id === updatedSpons._id ? { ...sp, ...updatedSpons } : sp
+            ) : [updatedSpons];
+            return {
+              ...r,
+              ...updatedReq,
+              sponsorships: updatedSponsorships
+            };
+          }
+          return r;
+        });
       })
       .addCase(acceptSponsorshipThunk.rejected, rejected)
 

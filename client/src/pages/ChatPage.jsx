@@ -100,7 +100,9 @@ export default function ChatPage() {
 
   // Handle URL param for active conversation
   useEffect(() => {
-    if (actualConvId && Array.isArray(conversations) && conversations.length > 0) {
+    if (actualConvId && actualConvId !== 'undefined' && Array.isArray(conversations)) {
+      if (loading) return;
+      
       const conv = conversations.find(c => c.conversationId === actualConvId || c._id === actualConvId);
       if (conv) {
         handleSelectConversation(conv);
@@ -111,7 +113,7 @@ export default function ChatPage() {
         setMobileView('chat');
       }
     }
-  }, [actualConvId, conversations]);
+  }, [actualConvId, conversations, loading]);
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {

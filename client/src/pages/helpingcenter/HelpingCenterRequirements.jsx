@@ -427,6 +427,10 @@ export default function HelpingCenterRequirements() {
     if (rejectTarget) dispatch(rejectSponsorshipThunk({ reqId: rejectTarget.reqId, sponsId: rejectTarget.sponsId, reason }));
   };
   const handleOpenChat = (conversationId) => {
+    if (!conversationId || conversationId === 'undefined') {
+      toast.error("Conversation ID not found. Please refresh the page.");
+      return;
+    }
     navigate(`/helping-center/chat?conv=${conversationId}`);
   };
 

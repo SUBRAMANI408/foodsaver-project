@@ -26,6 +26,7 @@ const menuByRole = {
     { icon: Package, label: 'My Food', to: '/merchant/food' },
     { icon: ShoppingBag, label: 'Orders', to: '/merchant/orders' },
     { icon: Gift, label: 'NGO Sponsorships', to: '/merchant/donations' },
+    { icon: MessageSquare, label: 'Chat', to: '/merchant/chat' },
     { icon: Store, label: 'Store Profile', to: '/merchant/profile' },
     { icon: Star, label: 'Reviews', to: '/merchant/reviews' },
     { icon: BarChart3, label: 'Analytics', to: '/merchant/analytics' },
@@ -44,6 +45,7 @@ const menuByRole = {
   helping_center: [
     { icon: LayoutDashboard, label: 'Dashboard', to: '/helping-center' },
     { icon: Heart, label: 'Food Requirements', to: '/helping-center/donations' },
+    { icon: MessageSquare, label: 'Chat', to: '/helping-center/chat' },
     { icon: Package, label: 'Inventory', to: '/helping-center/inventory' },
     { icon: BarChart3, label: 'Reports', to: '/helping-center/reports' },
     { icon: Bell, label: 'Notifications', to: '/notifications' },

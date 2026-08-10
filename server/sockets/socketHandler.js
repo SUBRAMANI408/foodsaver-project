@@ -22,6 +22,10 @@ export const setupSockets = (io) => {
 
     // Join personal room
     socket.join(`${socket.userRole}:${socket.userId}`);
+    socket.join(`user_${socket.userId}`);
+
+    // Broadcast online status
+    socket.broadcast.emit('user:online', { userId: socket.userId });
 
     // Delivery partner location update
     socket.on('delivery:location', async (data) => {
@@ -61,8 +65,19 @@ export const setupSockets = (io) => {
       }
     });
 
+    // Chat events
+    socket.on('chat:join', (conversationId) => socket.join(`chat:${conversationId}`));
+    socket.on('chat:leave', (conversationId) => socket.leave(`chat:${conversationId}`));
+    socket.on('chat:typing', ({ conversationId, userId }) => 
+      socket.to(`chat:${conversationId}`).emit('chat:typing', { userId, conversationId })
+    );
+    socket.on('chat:stop-typing', ({ conversationId, userId }) => 
+      socket.to(`chat:${conversationId}`).emit('chat:stop-typing', { userId, conversationId })
+    );
+
     socket.on('disconnect', () => {
       console.log(`🔴 User disconnected: ${socket.userId}`);
+      socket.broadcast.emit('user:offline', { userId: socket.userId });
     });
   });
 };

@@ -48,6 +48,7 @@ import MerchantSponsorships from './pages/merchant/MerchantSponsorships';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
 import MerchantsPage from './pages/MerchantsPage';
+import ChatPage from './pages/ChatPage';
 
 // Route Guards
 const PrivateRoute = ({ children, allowedRoles }) => {
@@ -153,6 +154,8 @@ export default function App() {
           <Route path="analytics" element={<MerchantAnalytics />} />
           <Route path="profile" element={<MerchantProfile />} />
           <Route path="donations" element={<MerchantSponsorships />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="chat/:conversationId" element={<ChatPage />} />
           <Route path="reviews" element={<div className="text-slate-400 p-4">Reviews page coming soon...</div>} />
         </Route>
 
@@ -183,6 +186,8 @@ export default function App() {
           <Route index element={<HelpingCenterDashboard />} />
           <Route path="donations" element={<HelpingCenterRequirements />} />
           <Route path="requirements" element={<HelpingCenterRequirements />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="chat/:conversationId" element={<ChatPage />} />
           <Route path="inventory" element={<div className="text-slate-400 p-4">Inventory coming soon...</div>} />
           <Route path="reports" element={<div className="text-slate-400 p-4">Reports coming soon...</div>} />
         </Route>

@@ -4,6 +4,7 @@ import foodReducer from './slices/foodSlice';
 import orderReducer from './slices/orderSlice';
 import uiReducer from './slices/uiSlice';
 import requirementReducer from './slices/requirementSlice';
+import chatReducer from './slices/chatSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     orders: orderReducer,
     ui: uiReducer,
     requirements: requirementReducer,
+    chat: chatReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

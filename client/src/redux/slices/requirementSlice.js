@@ -6,11 +6,13 @@ export const requirementService = {
   createRequirement: (data) => api.post('/requirements', data),
   getMyRequirements: (params) => api.get('/requirements/my', { params }),
   acceptSponsorship: (reqId, sponsId) => api.put(`/requirements/${reqId}/sponsorships/${sponsId}/accept`),
+  rejectSponsorship: (reqId, sponsId, data) => api.put(`/requirements/${reqId}/sponsorships/${sponsId}/reject`, data),
   cancelRequirement: (id) => api.delete(`/requirements/${id}`),
   getRequirement: (id) => api.get(`/requirements/${id}`),
   // Merchant
   getNearbyRequirements: (params) => api.get('/requirements/nearby', { params }),
   submitSponsorship: (reqId, data) => api.post(`/requirements/${reqId}/sponsor`, data),
+  editSponsorship: (reqId, data) => api.put(`/requirements/${reqId}/sponsor/edit`, data),
   getMySponsorships: (params) => api.get('/requirements/my-sponsorships', { params }),
 };
 
@@ -62,6 +64,18 @@ export const submitSponsorshipThunk = createAsyncThunk(
   }
 );
 
+export const editSponsorshipThunk = createAsyncThunk(
+  'requirements/editSponsor',
+  async ({ reqId, data }, { rejectWithValue }) => {
+    try {
+      const res = await requirementService.editSponsorship(reqId, data);
+      return res.data.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Failed to update');
+    }
+  }
+);
+
 export const acceptSponsorshipThunk = createAsyncThunk(
   'requirements/accept',
   async ({ reqId, sponsId }, { rejectWithValue }) => {
@@ -70,6 +84,18 @@ export const acceptSponsorshipThunk = createAsyncThunk(
       return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to accept');
+    }
+  }
+);
+
+export const rejectSponsorshipThunk = createAsyncThunk(
+  'requirements/reject',
+  async ({ reqId, sponsId, reason }, { rejectWithValue }) => {
+    try {
+      const res = await requirementService.rejectSponsorship(reqId, sponsId, { reason });
+      return res.data.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Failed to reject');
     }
   }
 );
@@ -130,24 +156,36 @@ const requirementSlice = createSlice({
       .addCase(submitSponsorshipThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.successMsg = 'Sponsorship offer submitted!';
-        // Mark as already sponsored in nearby list
         state.nearbyRequirements = state.nearbyRequirements.map((r) =>
           r._id === action.payload.requirement ? { ...r, alreadySponsored: true } : r
         );
       })
       .addCase(submitSponsorshipThunk.rejected, rejected)
 
+      .addCase(editSponsorshipThunk.pending, pending)
+      .addCase(editSponsorshipThunk.fulfilled, (state, action) => {
+        state.loading = false;
+        state.successMsg = 'Sponsorship updated!';
+      })
+      .addCase(editSponsorshipThunk.rejected, rejected)
+
       .addCase(acceptSponsorshipThunk.pending, pending)
       .addCase(acceptSponsorshipThunk.fulfilled, (state, action) => {
         state.loading = false;
-        state.successMsg = 'Sponsorship accepted!';
-        // Update requirement in list
+        state.successMsg = 'Sponsorship accepted! Chat is now enabled.';
         const updated = action.payload.requirement;
         state.myRequirements = state.myRequirements.map((r) =>
           r._id === updated._id ? { ...r, ...updated } : r
         );
       })
       .addCase(acceptSponsorshipThunk.rejected, rejected)
+
+      .addCase(rejectSponsorshipThunk.pending, pending)
+      .addCase(rejectSponsorshipThunk.fulfilled, (state, action) => {
+        state.loading = false;
+        state.successMsg = 'Sponsorship rejected.';
+      })
+      .addCase(rejectSponsorshipThunk.rejected, rejected)
 
       .addCase(fetchMySponsorships.pending, pending)
       .addCase(fetchMySponsorships.fulfilled, (state, action) => {

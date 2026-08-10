@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, Users, Clock, Calendar, Utensils, Heart, Loader2,
   CheckCircle, AlertCircle, Package, X, Star, ChefHat,
-  History, ArrowRight, Tag,
+  History, ArrowRight, Tag, Edit3, MessageCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   fetchNearbyRequirements,
   fetchMySponsorships,
   submitSponsorshipThunk,
+  editSponsorshipThunk,
   clearMsg,
 } from '../../redux/slices/requirementSlice';
 
@@ -29,10 +31,12 @@ const SPONS_STATUS_COLORS = {
   completed: 'text-blue-600 bg-blue-50',
 };
 
-function SponsorModal({ requirement, onClose, onSubmit, loading }) {
-  const [qty, setQty] = useState('');
-  const [notes, setNotes] = useState('');
-  const remaining = requirement.remaining || requirement.quantityRequired - requirement.quantityFulfilled;
+function SponsorModal({ requirement, onClose, onSubmit, loading, initialData = null }) {
+  const [qty, setQty] = useState(initialData ? initialData.quantityOffered : '');
+  const [notes, setNotes] = useState(initialData ? initialData.notes : '');
+  // For edits, we need to allow keeping current qty or increasing up to remaining + current
+  const baseRemaining = requirement.remaining ?? (requirement.quantityRequired - (requirement.quantityFulfilled || 0));
+  const remaining = initialData ? baseRemaining + initialData.quantityOffered : baseRemaining;
 
   const presets = [
     Math.min(remaining, 25),
@@ -61,8 +65,10 @@ function SponsorModal({ requirement, onClose, onSubmit, loading }) {
               <Heart className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Sponsor this Requirement</h2>
-              <p className="text-xs text-slate-400">{requirement.ngoName}</p>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">
+                {initialData ? 'Edit Sponsorship' : 'Sponsor this Requirement'}
+              </h2>
+              <p className="text-xs text-slate-400">{requirement.ngoName || requirement.contactName}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dark-800 transition-colors">
@@ -82,7 +88,7 @@ function SponsorModal({ requirement, onClose, onSubmit, loading }) {
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Still needed</span>
-            <span className="font-bold text-primary-600">{remaining} meals</span>
+            <span className="font-bold text-primary-600">{baseRemaining} meals</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Required by</span>
@@ -129,7 +135,7 @@ function SponsorModal({ requirement, onClose, onSubmit, loading }) {
             <button type="submit" disabled={loading}
               className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-primary-600 to-emerald-600 rounded-xl hover:from-primary-700 hover:to-emerald-700 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Heart className="w-4 h-4" />}
-              {loading ? 'Submitting...' : 'Confirm Sponsorship'}
+              {loading ? 'Submitting...' : (initialData ? 'Update Offer' : 'Confirm Sponsorship')}
             </button>
           </div>
         </form>
@@ -153,7 +159,7 @@ function RequirementCard({ req, onSponsor }) {
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-slate-800 dark:text-slate-200">{req.ngoName}</h3>
+              <h3 className="font-bold text-slate-800 dark:text-slate-200">{req.ngoName || req.contactName}</h3>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[req.status] || ''}`}>
                 {req.status?.replace('_', ' ')}
               </span>
@@ -222,14 +228,14 @@ function RequirementCard({ req, onSponsor }) {
   );
 }
 
-function SponsorshipHistoryCard({ sp }) {
+function SponsorshipHistoryCard({ sp, onEdit, onOpenChat }) {
   const req = sp.requirement;
   return (
     <div className="bg-white dark:bg-dark-900 rounded-2xl border border-slate-100 dark:border-dark-700 shadow-sm p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">{req?.ngoName || 'NGO'}</h3>
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">{req?.ngoName || req?.contactName || 'NGO'}</h3>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SPONS_STATUS_COLORS[sp.status] || ''}`}>
               {sp.status}
             </span>
@@ -238,16 +244,49 @@ function SponsorshipHistoryCard({ sp }) {
             <div className="flex flex-wrap gap-2 mt-1 text-xs text-slate-500">
               <span>{req.mealType}</span>
               <span>•</span>
-              <span>{req.addressText}</span>
+              <span className="truncate max-w-[200px]">{req.addressText}</span>
               <span>•</span>
               <span>{new Date(req.requiredDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
             </div>
           )}
           {sp.notes && <p className="text-xs text-slate-500 italic mt-1">"{sp.notes}"</p>}
+          
+          {/* Food items */}
+          {sp.foodItems && sp.foodItems.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {sp.foodItems.map((item, i) => (
+                <div key={i} className="text-xs text-slate-500 flex items-center gap-1">
+                  <Utensils className="w-3 h-3" />{item.quantity} {item.unit} – {item.name}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Rejection reason */}
+          {sp.status === 'rejected' && sp.rejectionReason && (
+            <div className="mt-1 text-xs text-red-500 italic">Reason: {sp.rejectionReason}</div>
+          )}
         </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-xl font-bold text-primary-600">{sp.quantityOffered}</div>
-          <div className="text-xs text-slate-400">meals</div>
+
+        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+          <div className="text-right">
+            <div className="text-xl font-bold text-primary-600">{sp.quantityOffered}</div>
+            <div className="text-xs text-slate-400">meals</div>
+          </div>
+          
+          {sp.status === 'pending' && (
+            <button onClick={() => onEdit(sp)}
+              className="flex items-center gap-1.5 px-3 py-1.5 mt-1 bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-semibold rounded-lg transition-colors">
+              <Edit3 className="w-3 h-3" /> Edit Offer
+            </button>
+          )}
+
+          {sp.status === 'accepted' && sp.chatEnabled && (
+            <button onClick={() => onOpenChat(sp.conversationId)}
+              className="flex items-center gap-1.5 px-3 py-1.5 mt-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors">
+              <MessageCircle className="w-3 h-3" /> Chat
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -256,9 +295,11 @@ function SponsorshipHistoryCard({ sp }) {
 
 export default function MerchantSponsorships() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { nearbyRequirements, mySponsorships, loading, error, successMsg } = useSelector((s) => s.requirements);
   const [activeTab, setActiveTab] = useState('nearby');
-  const [sponsorTarget, setSponsorTarget] = useState(null);
+  const [sponsorTarget, setSponsorTarget] = useState(null); // specific requirement
+  const [editTarget, setEditTarget] = useState(null); // specific sponsorship
 
   useEffect(() => {
     dispatch(fetchNearbyRequirements());
@@ -267,12 +308,24 @@ export default function MerchantSponsorships() {
 
   useEffect(() => {
     if (error) { toast.error(error); dispatch(clearMsg()); }
-    if (successMsg) { toast.success(successMsg); dispatch(clearMsg()); setSponsorTarget(null); }
+    if (successMsg) { 
+      toast.success(successMsg); 
+      dispatch(clearMsg()); 
+      setSponsorTarget(null);
+      setEditTarget(null);
+    }
   }, [error, successMsg, dispatch]);
 
-  const handleSponsor = (qty, notes) => {
-    if (!sponsorTarget) return;
-    dispatch(submitSponsorshipThunk({ reqId: sponsorTarget._id, data: { quantityOffered: qty, notes } }));
+  const handleOpenChat = (convId) => {
+    navigate(`/merchant/chat?conv=${convId}`);
+  };
+
+  const handleSponsor = (reqId, data) => {
+    dispatch(submitSponsorshipThunk({ reqId, data }));
+  };
+
+  const handleEditSponsor = (reqId, data) => {
+    dispatch(editSponsorshipThunk({ reqId, data }));
   };
 
   const openReqs = nearbyRequirements.filter((r) => ['open', 'partially_fulfilled'].includes(r.status));
@@ -359,7 +412,12 @@ export default function MerchantSponsorships() {
         ) : (
           <div className="space-y-3">
             {mySponsorships.map((sp) => (
-              <SponsorshipHistoryCard key={sp._id} sp={sp} />
+              <SponsorshipHistoryCard 
+                key={sp._id} 
+                sp={sp} 
+                onEdit={setEditTarget}
+                onOpenChat={handleOpenChat}
+              />
             ))}
           </div>
         )
@@ -371,7 +429,16 @@ export default function MerchantSponsorships() {
           <SponsorModal
             requirement={sponsorTarget}
             onClose={() => setSponsorTarget(null)}
-            onSubmit={(reqId, data) => dispatch(submitSponsorshipThunk({ reqId, data }))}
+            onSubmit={handleSponsor}
+            loading={loading}
+          />
+        )}
+        {editTarget && editTarget.requirement && (
+          <SponsorModal
+            requirement={editTarget.requirement}
+            initialData={editTarget}
+            onClose={() => setEditTarget(null)}
+            onSubmit={handleEditSponsor}
             loading={loading}
           />
         )}

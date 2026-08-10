@@ -3,6 +3,7 @@ import Sponsorship from '../models/Sponsorship.js';
 import Merchant from '../models/Merchant.js';
 import HelpingCenter from '../models/HelpingCenter.js';
 import Notification from '../models/Notification.js';
+import ChatMessage from '../models/ChatMessage.js';
 
 // ─── NGO: Create a Food Requirement ───────────────────────────────────────────
 // POST /api/requirements
@@ -152,9 +153,14 @@ export const acceptSponsorship = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Sponsorship already processed' });
     }
 
+    // Generate conversationId
+    const conversationId = `req_${id}_${req.userId}_${sponsorship.merchant}`;
+
     // Update sponsorship
     sponsorship.status = 'accepted';
     sponsorship.acceptedAt = new Date();
+    sponsorship.chatEnabled = true;
+    sponsorship.conversationId = conversationId;
     await sponsorship.save();
 
     // Update requirement fulfilled quantity
@@ -166,25 +172,106 @@ export const acceptSponsorship = async (req, res, next) => {
     }
     await requirement.save();
 
+    // Create system chat messages
+    const systemMessages = [
+      {
+        conversationId,
+        sender: req.userId,
+        senderModel: 'HelpingCenter',
+        receiver: sponsorship.merchant,
+        receiverModel: 'Merchant',
+        content: `${requirement.ngoName} accepted the food offer of ${sponsorship.quantityOffered} meals.`,
+        type: 'system',
+        requirement: id,
+      },
+      {
+        conversationId,
+        sender: req.userId,
+        senderModel: 'HelpingCenter',
+        receiver: sponsorship.merchant,
+        receiverModel: 'Merchant',
+        content: 'Chat is now available. You can discuss food & delivery details here.',
+        type: 'system',
+        requirement: id,
+      },
+    ];
+    await ChatMessage.insertMany(systemMessages);
+
     // Notify merchant
     await Notification.create({
       recipient: sponsorship.merchant,
       recipientModel: 'Merchant',
       title: '✅ Sponsorship Accepted!',
-      message: `${requirement.ngoName} has accepted your sponsorship of ${sponsorship.quantityOffered} meals for their ${requirement.mealType} requirement.`,
+      message: `${requirement.ngoName} has accepted your sponsorship of ${sponsorship.quantityOffered} meals. Chat is now enabled!`,
       type: 'donation',
-      data: { requirementId: id, sponsorshipId },
+      data: { requirementId: id, sponsorshipId, conversationId },
     });
 
     req.io?.to(`user_${sponsorship.merchant}`).emit('notification:new', {
       title: '✅ Sponsorship Accepted!',
-      message: `${requirement.ngoName} accepted your offer of ${sponsorship.quantityOffered} meals.`,
+      message: `${requirement.ngoName} accepted your offer. Chat is now available!`,
+      data: { conversationId },
+    });
+
+    // Emit chat enabled event
+    req.io?.to(`user_${sponsorship.merchant}`).emit('chat:enabled', { conversationId, sponsorshipId });
+    req.io?.to(`user_${req.userId}`).emit('chat:enabled', { conversationId, sponsorshipId });
+
+    res.json({
+      success: true,
+      message: 'Sponsorship accepted! Chat is now enabled.',
+      data: { requirement, sponsorship, conversationId },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── NGO: Reject a sponsorship offer ─────────────────────────────────────────
+// PUT /api/requirements/:id/sponsorships/:sponsorshipId/reject
+export const rejectSponsorship = async (req, res, next) => {
+  try {
+    const { id, sponsorshipId } = req.params;
+    const { reason } = req.body;
+
+    const requirement = await FoodRequirement.findOne({ _id: id, ngo: req.userId });
+    if (!requirement) {
+      return res.status(404).json({ success: false, message: 'Requirement not found' });
+    }
+
+    const sponsorship = await Sponsorship.findOne({ _id: sponsorshipId, requirement: id });
+    if (!sponsorship) {
+      return res.status(404).json({ success: false, message: 'Sponsorship not found' });
+    }
+
+    if (sponsorship.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Sponsorship already processed' });
+    }
+
+    sponsorship.status = 'rejected';
+    sponsorship.rejectedAt = new Date();
+    sponsorship.rejectionReason = reason || '';
+    await sponsorship.save();
+
+    // Notify merchant
+    await Notification.create({
+      recipient: sponsorship.merchant,
+      recipientModel: 'Merchant',
+      title: '❌ Sponsorship Rejected',
+      message: `${requirement.ngoName} has rejected your sponsorship offer.${reason ? ` Reason: ${reason}` : ''}`,
+      type: 'donation',
+      data: { requirementId: id, sponsorshipId, reason },
+    });
+
+    req.io?.to(`user_${sponsorship.merchant}`).emit('notification:new', {
+      title: '❌ Sponsorship Rejected',
+      message: `${requirement.ngoName} rejected your offer.${reason ? ` Reason: ${reason}` : ''}`,
     });
 
     res.json({
       success: true,
-      message: 'Sponsorship accepted successfully!',
-      data: { requirement, sponsorship },
+      message: 'Sponsorship rejected.',
+      data: { sponsorship },
     });
   } catch (error) {
     next(error);
@@ -283,6 +370,77 @@ export const submitSponsorship = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Sponsorship submitted! The NGO will review your offer.',
+      data: populated,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── MERCHANT: Edit a sponsorship offer ──────────────────────────────────────
+// PUT /api/requirements/:id/sponsor/edit
+export const editSponsorship = async (req, res, next) => {
+  try {
+    const { quantityOffered, foodItems, notes } = req.body;
+    
+    const sponsorship = await Sponsorship.findOne({ requirement: req.params.id, merchant: req.userId });
+    if (!sponsorship) {
+      return res.status(404).json({ success: false, message: 'Sponsorship not found' });
+    }
+    
+    if (sponsorship.status === 'rejected' || sponsorship.status === 'completed') {
+      return res.status(400).json({ success: false, message: 'Cannot edit a rejected or completed sponsorship' });
+    }
+    
+    if (quantityOffered) sponsorship.quantityOffered = parseInt(quantityOffered);
+    if (foodItems) sponsorship.foodItems = JSON.parse(typeof foodItems === 'string' ? foodItems : JSON.stringify(foodItems));
+    if (notes !== undefined) sponsorship.notes = notes;
+    await sponsorship.save();
+    
+    const requirement = await FoodRequirement.findById(req.params.id);
+    
+    // If chat is enabled, send system message about the update
+    if (sponsorship.chatEnabled && sponsorship.conversationId) {
+      await ChatMessage.create({
+        conversationId: sponsorship.conversationId,
+        sender: req.userId,
+        senderModel: 'Merchant',
+        receiver: requirement.ngo,
+        receiverModel: 'HelpingCenter',
+        content: `Merchant updated the food offer: ${quantityOffered} meals.`,
+        type: 'system',
+        requirement: req.params.id,
+      });
+      
+      req.io?.to(`chat:${sponsorship.conversationId}`).emit('chat:message', {
+        type: 'system',
+        content: `Merchant updated the food offer: ${quantityOffered} meals.`,
+        conversationId: sponsorship.conversationId,
+      });
+    }
+    
+    // Notify NGO
+    if (requirement) {
+      await Notification.create({
+        recipient: requirement.ngo,
+        recipientModel: 'HelpingCenter',
+        title: '📝 Sponsorship Updated',
+        message: `A merchant updated their food offer to ${quantityOffered} meals.`,
+        type: 'donation',
+        data: { requirementId: req.params.id },
+      });
+      
+      req.io?.to(`user_${requirement.ngo}`).emit('notification:new', {
+        title: '📝 Sponsorship Updated',
+        message: `A merchant updated their offer to ${quantityOffered} meals.`,
+      });
+    }
+    
+    const populated = await sponsorship.populate('merchant', 'businessName address phone logo');
+    
+    res.json({
+      success: true,
+      message: 'Sponsorship updated successfully!',
       data: populated,
     });
   } catch (error) {

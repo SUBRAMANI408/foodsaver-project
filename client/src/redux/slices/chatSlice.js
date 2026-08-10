@@ -91,26 +91,30 @@ const chatSlice = createSlice({
   initialState,
   reducers: {
     addMessage: (state, action) => {
-      // Add message if it belongs to active conversation
-      if (state.activeConversation?._id === action.payload.conversationId || 
-          state.activeConversation?.id === action.payload.conversationId || 
-          action.payload.conversationId === state.activeConversation?.conversationId) { // Fallbacks for ID names
-          
-          // Check if message already exists to prevent duplicates
-          const exists = state.messages.find(m => m._id === action.payload._id);
-          if (!exists) {
-            state.messages.push(action.payload);
-          }
+      const msg = action.payload;
+      const isActiveConv =
+        state.activeConversation?._id === msg.conversationId ||
+        state.activeConversation?.id === msg.conversationId ||
+        msg.conversationId === state.activeConversation?.conversationId;
+
+      // Add message to messages list if it belongs to active conversation
+      if (isActiveConv) {
+        const exists = state.messages.find(m => m._id === msg._id);
+        if (!exists) {
+          state.messages.push(msg);
+        }
+      } else {
+        // Increment global unread count for messages in non-active conversations
+        state.unreadCount = (state.unreadCount || 0) + 1;
       }
-      
+
       // Update last message in conversation list
-      const convIndex = state.conversations.findIndex(c => 
-        c._id === action.payload.conversationId || c.conversationId === action.payload.conversationId
+      const convIndex = state.conversations.findIndex(c =>
+        c._id === msg.conversationId || c.conversationId === msg.conversationId
       );
       if (convIndex !== -1) {
-        state.conversations[convIndex].lastMessage = action.payload;
-        if (state.activeConversation?._id !== action.payload.conversationId && 
-            action.payload.sender !== state.activeConversation?.userId) {
+        state.conversations[convIndex].lastMessage = msg;
+        if (!isActiveConv) {
           state.conversations[convIndex].unreadCount = (state.conversations[convIndex].unreadCount || 0) + 1;
         }
       }
@@ -136,6 +140,21 @@ const chatSlice = createSlice({
     },
     setActiveConversation: (state, action) => {
       state.activeConversation = action.payload;
+      // Clear unread count for this conversation when opened
+      if (action.payload) {
+        const convId = action.payload._id || action.payload.conversationId || action.payload.id;
+        const convIndex = state.conversations.findIndex(c =>
+          c._id === convId || c.conversationId === convId
+        );
+        if (convIndex !== -1) {
+          const prevUnread = state.conversations[convIndex].unreadCount || 0;
+          state.conversations[convIndex].unreadCount = 0;
+          state.unreadCount = Math.max(0, (state.unreadCount || 0) - prevUnread);
+        }
+      }
+    },
+    resetUnreadCount: (state) => {
+      state.unreadCount = 0;
     },
     clearChat: () => initialState,
   },

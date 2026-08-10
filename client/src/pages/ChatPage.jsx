@@ -188,10 +188,12 @@ export default function ChatPage() {
     const otherPartyId = isPopulatedObject ? (otherParty._id || otherParty.id) : otherParty;
     
     const participant = activeConversation?.participants?.find(p => p._id === otherPartyId || p.userId === otherPartyId);
+    const name = participant?.name || participant?.businessName ||
+      (isPopulatedObject ? (otherParty.centerName || otherParty.businessName || otherParty.name) : null) || 'User';
     
     return {
       id: otherPartyId,
-      name: participant?.name || participant?.businessName || (isPopulatedObject ? (otherParty.centerName || otherParty.businessName || otherParty.name) : null) || 'User',
+      name,
       avatar: participant?.avatar || (isPopulatedObject ? otherParty.logo : null),
       isOnline: otherPartyId ? (onlineUsers[otherPartyId] || false) : false,
       model: currentUser?.role === 'merchant' ? 'HelpingCenter' : 'Merchant'
@@ -385,12 +387,15 @@ export default function ChatPage() {
           ) : (
             filteredConversations.map(conv => {
               const otherPartyId = getOtherParty(conv);
-              // Basic mock names if participants array isn't populated properly
-              const name = `User ${otherPartyId?.substring(0, 4) || ''}`; 
-              const isOnline = onlineUsers[otherPartyId];
+              const name = conv.otherPartyName ||
+                (typeof otherPartyId === 'object' && otherPartyId !== null
+                  ? (otherPartyId.businessName || otherPartyId.centerName || otherPartyId.name || 'User')
+                  : (typeof otherPartyId === 'string' ? `User ${otherPartyId.substring(0, 4)}` : 'User'));
+              const isOnline = onlineUsers[typeof otherPartyId === 'string' ? otherPartyId : otherPartyId?._id];
               const lastMsg = conv.lastMessage;
               const isUnread = conv.unreadCount > 0;
               const isActive = (activeConversation?.conversationId === conv.conversationId || activeConversation?._id === conv._id);
+              const nameInitial = (name || 'U').charAt(0).toUpperCase();
               
               return (
                 <div 
@@ -404,7 +409,7 @@ export default function ChatPage() {
                 >
                   <div className="relative">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-dark-700 dark:to-dark-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-lg overflow-hidden flex-shrink-0">
-                      {name.charAt(0)}
+                      {nameInitial}
                     </div>
                     {isOnline && (
                       <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-dark-900 rounded-full"></div>
@@ -457,7 +462,9 @@ export default function ChatPage() {
                 </button>
                 
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-dark-700 dark:to-dark-600 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold overflow-hidden flex-shrink-0">
-                  {activeOtherPartyDetails.avatar ? <img src={activeOtherPartyDetails.avatar} alt="avatar" /> : activeOtherPartyDetails.name.charAt(0)}
+                  {activeOtherPartyDetails.avatar
+                    ? <img src={activeOtherPartyDetails.avatar} alt="avatar" className="w-full h-full object-cover" />
+                    : (activeOtherPartyDetails.name || 'U').charAt(0).toUpperCase()}
                 </div>
                 
                 <div>
@@ -514,7 +521,7 @@ export default function ChatPage() {
                           <div className="w-8 flex-shrink-0 flex items-end pb-1">
                             {showAvatar && (
                               <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-dark-700 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300">
-                                {activeOtherPartyDetails.name.charAt(0)}
+                                {(activeOtherPartyDetails.name || 'U').charAt(0).toUpperCase()}
                               </div>
                             )}
                           </div>
@@ -545,7 +552,7 @@ export default function ChatPage() {
                   <div className="flex gap-2 max-w-[70%]">
                     <div className="w-8 flex-shrink-0 flex items-end pb-1">
                       <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-dark-700 flex items-center justify-center text-xs font-bold">
-                        {activeOtherPartyDetails.name.charAt(0)}
+                        {(activeOtherPartyDetails.name || 'U').charAt(0).toUpperCase()}
                       </div>
                     </div>
                     <div className="bg-slate-100 dark:bg-dark-800 rounded-2xl rounded-bl-md px-4 py-3 text-sm flex items-center gap-1">

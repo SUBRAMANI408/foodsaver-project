@@ -52,6 +52,15 @@ export default function Navbar() {
     return paths[role] || '/dashboard';
   };
 
+  const handleImpactClick = (e) => {
+    e.preventDefault();
+    if (location.pathname !== '/') {
+      navigate('/#impact');
+    } else {
+      document.getElementById('impact')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <motion.nav
       initial={{ y: -80 }}
@@ -81,7 +90,6 @@ export default function Navbar() {
               { label: 'Home', to: '/' },
               { label: 'Find Food', to: '/food' },
               { label: 'Merchants', to: '/merchants' },
-              { label: 'Impact', to: '/#impact' },
             ].map(({ label, to }) => (
               <Link
                 key={label}
@@ -95,6 +103,13 @@ export default function Navbar() {
                 {label}
               </Link>
             ))}
+            <a
+              href="#impact"
+              onClick={handleImpactClick}
+              className="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-slate-50 dark:hover:bg-dark-800 cursor-pointer"
+            >
+              Impact
+            </a>
           </div>
 
           {/* Right Actions */}

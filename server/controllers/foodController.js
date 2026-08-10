@@ -121,7 +121,38 @@ export const updateFoodItem = async (req, res, next) => {
     const item = await FoodItem.findOne({ _id: req.params.id, merchant: req.userId });
     if (!item) return res.status(404).json({ success: false, message: 'Food item not found' });
 
-    const updates = { ...req.body };
+    // Parse all fields from FormData (everything comes as strings)
+    const updates = {};
+    const { name, description, category, originalPrice, discountPercentage, quantity, unit, expiryTime, isVeg, allergens, isDynamicPricing } = req.body;
+
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (category !== undefined) updates.category = category;
+    if (unit !== undefined) updates.unit = unit;
+    if (expiryTime !== undefined) updates.expiryTime = expiryTime;
+    if (isVeg !== undefined) updates.isVeg = isVeg === 'true' || isVeg === true;
+    if (isDynamicPricing !== undefined) updates.isDynamicPricing = isDynamicPricing === 'true' || isDynamicPricing === true;
+    if (allergens !== undefined) {
+      try { updates.allergens = JSON.parse(allergens); }
+      catch { updates.allergens = allergens ? allergens.split(',').map(a => a.trim()).filter(Boolean) : []; }
+    }
+
+    // Parse numeric fields and recalculate derived price
+    const parsedOriginalPrice = originalPrice !== undefined ? parseFloat(originalPrice) : item.originalPrice;
+    const parsedDiscount = discountPercentage !== undefined ? parseFloat(discountPercentage) : item.discountPercentage;
+    const parsedQuantity = quantity !== undefined ? parseInt(quantity) : item.quantity;
+
+    updates.originalPrice = parsedOriginalPrice;
+    updates.discountPercentage = parsedDiscount;
+    updates.discountedPrice = parseFloat((parsedOriginalPrice * (1 - parsedDiscount / 100)).toFixed(2));
+    updates.quantity = parsedQuantity;
+    // Keep availableQuantity in sync if quantity is being increased
+    if (quantity !== undefined) {
+      const diff = parsedQuantity - item.quantity;
+      updates.availableQuantity = Math.max(0, (item.availableQuantity || item.quantity) + diff);
+    }
+
+    // Handle new image uploads
     if (req.files && req.files.length > 0) {
       const newImages = [];
       for (const file of req.files) {
@@ -131,7 +162,12 @@ export const updateFoodItem = async (req, res, next) => {
       updates.images = [...item.images, ...newImages];
     }
 
-    const updated = await FoodItem.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true });
+    const updated = await FoodItem.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
     res.json({ success: true, message: 'Food item updated', data: updated });
   } catch (error) {
     next(error);

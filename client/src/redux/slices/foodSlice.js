@@ -46,6 +46,15 @@ export const deleteFoodItem = createAsyncThunk('food/delete', async (id, { rejec
   }
 });
 
+export const updateFoodItemAction = createAsyncThunk('food/update', async ({ id, data }, { rejectWithValue }) => {
+  try {
+    const res = await foodService.update(id, data);
+    return res.data.data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to update food item');
+  }
+});
+
 const foodSlice = createSlice({
   name: 'food',
   initialState: {
@@ -104,6 +113,10 @@ const foodSlice = createSlice({
       })
       .addCase(deleteFoodItem.fulfilled, (state, action) => {
         state.merchantItems = state.merchantItems.filter((i) => i._id !== action.payload);
+      })
+      .addCase(updateFoodItemAction.fulfilled, (state, action) => {
+        const idx = state.merchantItems.findIndex((i) => i._id === action.payload._id);
+        if (idx !== -1) state.merchantItems[idx] = action.payload;
       });
   },
 });

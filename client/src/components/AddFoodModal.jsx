@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
-import { X, Upload, Plus, Leaf, Clock, Tag, Image } from 'lucide-react';
-import { createFoodItem } from '../redux/slices/foodSlice';
+import { X, Upload, Plus, Leaf, Clock, Tag, Image, Save } from 'lucide-react';
+import { createFoodItem, updateFoodItemAction, fetchMerchantFood } from '../redux/slices/foodSlice';
 import toast from 'react-hot-toast';
 
 const CATEGORIES = ['meals', 'snacks', 'bakery', 'beverages', 'desserts', 'vegetables', 'fruits', 'dairy', 'other'];
 
-export default function AddFoodModal({ onClose }) {
+export default function AddFoodModal({ onClose, editData = null }) {
   const dispatch = useDispatch();
+  const isEditMode = !!editData;
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: '', description: '', category: 'meals', originalPrice: '', discountPercentage: '30',
@@ -16,6 +17,31 @@ export default function AddFoodModal({ onClose }) {
   });
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
+
+  // Pre-fill form when editing an existing food item
+  useEffect(() => {
+    if (editData) {
+      const expiryLocal = editData.expiryTime
+        ? new Date(editData.expiryTime).toISOString().slice(0, 16)
+        : '';
+      setForm({
+        name: editData.name || '',
+        description: editData.description || '',
+        category: editData.category || 'meals',
+        originalPrice: editData.originalPrice || '',
+        discountPercentage: editData.discountPercentage || '30',
+        quantity: editData.quantity || '',
+        unit: editData.unit || 'pieces',
+        expiryTime: expiryLocal,
+        isVeg: editData.isVeg ?? true,
+        isDynamicPricing: editData.isDynamicPricing ?? false,
+        allergens: Array.isArray(editData.allergens) ? editData.allergens.join(', ') : (editData.allergens || ''),
+      });
+      if (editData.images?.length > 0) {
+        setPreviews(editData.images);
+      }
+    }
+  }, [editData]);
 
   const discountedPrice = form.originalPrice
     ? (parseFloat(form.originalPrice) * (1 - parseFloat(form.discountPercentage || 0) / 100)).toFixed(0)
@@ -35,12 +61,24 @@ export default function AddFoodModal({ onClose }) {
       Object.entries(form).forEach(([k, v]) => fd.append(k, v));
       images.forEach((img) => fd.append('images', img));
 
-      const result = await dispatch(createFoodItem(fd));
-      if (createFoodItem.fulfilled.match(result)) {
-        toast.success('Food item added successfully! 🎉');
-        onClose();
+      if (isEditMode) {
+        const result = await dispatch(updateFoodItemAction({ id: editData._id, data: fd }));
+        if (updateFoodItemAction.fulfilled.match(result)) {
+          // Re-fetch the full list to ensure UI is in sync with server-calculated fields
+          dispatch(fetchMerchantFood({}));
+          toast.success('Food item updated successfully! ✅');
+          onClose();
+        } else {
+          toast.error(result.payload || 'Failed to update food item');
+        }
       } else {
-        toast.error(result.payload || 'Failed to add food item');
+        const result = await dispatch(createFoodItem(fd));
+        if (createFoodItem.fulfilled.match(result)) {
+          toast.success('Food item added successfully! 🎉');
+          onClose();
+        } else {
+          toast.error(result.payload || 'Failed to add food item');
+        }
       }
     } finally {
       setLoading(false);
@@ -61,7 +99,7 @@ export default function AddFoodModal({ onClose }) {
             <div className="w-8 h-8 bg-primary-50 dark:bg-primary-950/50 rounded-xl flex items-center justify-center">
               <Leaf className="w-4 h-4 text-primary-500" />
             </div>
-            <h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">Add Food Item</h2>
+            <h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">{isEditMode ? 'Edit Food Item' : 'Add Food Item'}</h2>
           </div>
           <button onClick={onClose} className="btn-icon text-slate-400 hover:text-slate-600">
             <X className="w-5 h-5" />
@@ -174,7 +212,7 @@ export default function AddFoodModal({ onClose }) {
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
             <button type="submit" disabled={loading} className="btn-primary flex-1">
-              {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Plus className="w-4 h-4" /> Add Food Item</>}
+              {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : isEditMode ? <><Save className="w-4 h-4" /> Save Changes</> : <><Plus className="w-4 h-4" /> Add Food Item</>}
             </button>
           </div>
         </form>

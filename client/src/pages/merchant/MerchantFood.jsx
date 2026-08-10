@@ -16,7 +16,18 @@ export default function MerchantFood({ showAddForm = false }) {
   const dispatch = useDispatch();
   const { merchantItems, loading } = useSelector((s) => s.food);
   const [showModal, setShowModal] = useState(showAddForm);
+  const [editItem, setEditItem] = useState(null);
   const [filter, setFilter] = useState('all');
+
+  const handleOpenEdit = (food) => {
+    setEditItem(food);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditItem(null);
+  };
 
   useEffect(() => { dispatch(fetchMerchantFood({})); }, [dispatch]);
 
@@ -36,7 +47,7 @@ export default function MerchantFood({ showAddForm = false }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">My Food Items 🍽️</h1>
-        <button onClick={() => setShowModal(true)} className="btn-primary">
+        <button onClick={() => { setEditItem(null); setShowModal(true); }} className="btn-primary">
           <Plus className="w-4 h-4" /> Add Food Item
         </button>
       </div>
@@ -99,7 +110,7 @@ export default function MerchantFood({ showAddForm = false }) {
 
                 {/* Actions */}
                 <div className="flex gap-2">
-                  <button className="btn-ghost btn-sm flex-1 text-xs">
+                  <button onClick={() => handleOpenEdit(food)} className="btn-ghost btn-sm flex-1 text-xs">
                     <Edit className="w-3.5 h-3.5" /> Edit
                   </button>
                   {['available', 'expiring_soon', 'expired'].includes(food.status) && (
@@ -117,8 +128,8 @@ export default function MerchantFood({ showAddForm = false }) {
         </div>
       )}
 
-      {/* Add Food Modal */}
-      {showModal && <AddFoodModal onClose={() => setShowModal(false)} />}
+      {/* Add / Edit Food Modal */}
+      {showModal && <AddFoodModal onClose={handleCloseModal} editData={editItem} />}
     </div>
   );
 }

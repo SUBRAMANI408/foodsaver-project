@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -55,6 +55,7 @@ const itemVariants = {
 
 export default function LandingPage() {
   const dispatch = useDispatch();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const { trending } = useSelector((s) => s.food);
   const [activeCategory, setActiveCategory] = useState(null);
@@ -62,6 +63,15 @@ export default function LandingPage() {
   useEffect(() => {
     dispatch(fetchTrending());
   }, [dispatch]);
+
+  // Scroll to #impact section if navigated via hash link
+  useEffect(() => {
+    if (location.hash === '#impact') {
+      setTimeout(() => {
+        document.getElementById('impact')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [location.hash]);
 
   return (
     <div className="overflow-x-hidden">

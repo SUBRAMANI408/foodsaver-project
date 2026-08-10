@@ -1,16 +1,16 @@
 import { Link } from 'react-router-dom';
 import { Store, MapPin, Star } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { adminService } from '../services';
+import { merchantService } from '../services';
 
 export default function MerchantsPage() {
   const [merchants, setMerchants] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    adminService.getAllUsers({ role: 'merchant', isVerified: true }).then((res) => {
-      setMerchants(res.data.data);
-    }).catch(() => {}).finally(() => setLoading(false));
+    merchantService.getNearby({}).then((res) => {
+      setMerchants(res.data.data || []);
+    }).catch(() => setMerchants([])).finally(() => setLoading(false));
   }, []);
 
   return (

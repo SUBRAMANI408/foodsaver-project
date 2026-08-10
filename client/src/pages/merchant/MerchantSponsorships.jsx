@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,7 +60,7 @@ function SponsorModal({ requirement, onClose, onSubmit, loading, initialData = n
     maxQty,
   ].filter((v, i, a) => v > 0 && a.indexOf(v) === i && selectedFood);
 
-  const finalPricePerUnit = selectedFood ? (selectedFood.price - (selectedFood.price * (discountPercentage / 100))) : 0;
+  const finalPricePerUnit = selectedFood ? (selectedFood.originalPrice - (selectedFood.originalPrice * (discountPercentage / 100))) : 0;
   const totalAmount = finalPricePerUnit * (parseInt(qty) || 0);
 
   const handleSubmit = (e) => {
@@ -79,13 +80,13 @@ function SponsorModal({ requirement, onClose, onSubmit, loading, initialData = n
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white dark:bg-dark-900 rounded-2xl shadow-2xl w-full max-w-md"
+        className="bg-white dark:bg-dark-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-dark-700">
           <div className="flex items-center gap-3">
@@ -140,14 +141,14 @@ function SponsorModal({ requirement, onClose, onSubmit, loading, initialData = n
               <option value="">-- Choose a food item --</option>
               {merchantFoods.map(food => (
                 <option key={food._id} value={food._id}>
-                  {food.name} (Qty: {food.availableQuantity}, Price: ₹{food.price})
+                  {food.name} (Qty: {food.availableQuantity}, Price: ₹{food.originalPrice})
                 </option>
               ))}
             </select>
             {selectedFood && (
               <div className="mt-2 text-xs text-slate-500">
                 Available: <span className="font-semibold">{selectedFood.availableQuantity}</span> | 
-                Original Price: <span className="font-semibold">₹{selectedFood.price}/unit</span>
+                Original Price: <span className="font-semibold">₹{selectedFood.originalPrice}/unit</span>
               </div>
             )}
           </div>
@@ -216,7 +217,8 @@ function SponsorModal({ requirement, onClose, onSubmit, loading, initialData = n
           </div>
         </form>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

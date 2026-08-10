@@ -164,7 +164,13 @@ const chatSlice = createSlice({
       .addCase(fetchConversations.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(fetchConversations.fulfilled, (state, action) => {
         state.loading = false;
-        state.conversations = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
+        const payloadData = action.payload?.data;
+        const raw = Array.isArray(action.payload) ? action.payload : (Array.isArray(payloadData) ? payloadData : []);
+        // Normalize: server returns `latestMessage`, client expects `lastMessage`
+        state.conversations = raw.map(conv => ({
+          ...conv,
+          lastMessage: conv.lastMessage || conv.latestMessage || null,
+        }));
       })
       .addCase(fetchConversations.rejected, (state, action) => {
         state.loading = false;
@@ -175,7 +181,8 @@ const chatSlice = createSlice({
       .addCase(fetchMessages.pending, (state) => { state.messagesLoading = true; state.error = null; })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.messagesLoading = false;
-        state.messages = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
+        const payloadData = action.payload?.data;
+        state.messages = Array.isArray(action.payload) ? action.payload : (Array.isArray(payloadData) ? payloadData : []);
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.messagesLoading = false;
@@ -184,7 +191,10 @@ const chatSlice = createSlice({
       
       // sendMessage
       .addCase(sendMessage.fulfilled, (state, action) => {
-        state.messages.push(action.payload);
+        const exists = state.messages.find(m => m._id === action.payload._id);
+        if (!exists) {
+          state.messages.push(action.payload);
+        }
         const convIndex = state.conversations.findIndex(c => 
           c._id === action.payload.conversationId || c.conversationId === action.payload.conversationId
         );
@@ -195,7 +205,10 @@ const chatSlice = createSlice({
       
       // shareAddress
       .addCase(shareAddress.fulfilled, (state, action) => {
-        state.messages.push(action.payload);
+        const exists = state.messages.find(m => m._id === action.payload._id);
+        if (!exists) {
+          state.messages.push(action.payload);
+        }
         const convIndex = state.conversations.findIndex(c => 
           c._id === action.payload.conversationId || c.conversationId === action.payload.conversationId
         );

@@ -5,6 +5,7 @@ import orderReducer from './slices/orderSlice';
 import uiReducer from './slices/uiSlice';
 import requirementReducer from './slices/requirementSlice';
 import chatReducer from './slices/chatSlice';
+import merchantCommunityReducer from './slices/merchantCommunitySlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     ui: uiReducer,
     requirements: requirementReducer,
     chat: chatReducer,
+    merchantCommunity: merchantCommunityReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

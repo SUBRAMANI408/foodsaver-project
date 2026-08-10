@@ -21,6 +21,7 @@ import merchantRoutes from './routes/merchantRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import requirementRoutes from './routes/requirementRoutes.js';
+import merchantCommunityRoutes from './routes/merchantCommunityRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { setupSockets } from './sockets/socketHandler.js';
 
@@ -83,6 +84,7 @@ app.use('/api/merchants', merchantRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/requirements', requirementRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/community', merchantCommunityRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

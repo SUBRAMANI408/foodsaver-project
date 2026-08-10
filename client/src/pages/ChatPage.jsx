@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, Component } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Component } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,7 +47,7 @@ class ChatErrorBoundary extends Component {
   }
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { conversationId: urlConversationId } = useParams();
@@ -76,34 +76,35 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   
-  // Socket connection and event listeners
+  // Track whether the component is truly mounted (for cleanup guard)
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // Socket connection and event listeners – runs ONCE on mount, cleans up on unmount.
+  // Do NOT depend on `conversations` here; that caused an infinite reconnect loop.
   useEffect(() => {
     const socket = connectSocket();
     if (!socket) return;
-    
-    // Join all conversation rooms when conversations load
-    if (Array.isArray(conversations) && conversations.length > 0) {
-      conversations.forEach(conv => {
-        socket.emit('chat:join', conv.conversationId || conv._id);
-      });
-    }
 
     const handleMessage = (msg) => dispatch(addMessage(msg));
-    const handleOnline = (userId) => dispatch(setOnlineUser(userId));
-    const handleOffline = (userId) => dispatch(removeOnlineUser(userId));
+    // Server emits { userId } objects — destructure to get the string
+    const handleOnline = (data) => dispatch(setOnlineUser(typeof data === 'string' ? data : data?.userId));
+    const handleOffline = (data) => dispatch(removeOnlineUser(typeof data === 'string' ? data : data?.userId));
     const handleTyping = (data) => {
       dispatch(setTyping(data));
-      // Auto-clear typing after 3 seconds if stop-typing isn't received
       setTimeout(() => dispatch(clearTyping(data)), 3000);
     };
     const handleStopTyping = (data) => dispatch(clearTyping(data));
-    
+
     socket.on('chat:message', handleMessage);
     socket.on('user:online', handleOnline);
     socket.on('user:offline', handleOffline);
     socket.on('chat:typing', handleTyping);
     socket.on('chat:stop-typing', handleStopTyping);
-    
+
     return () => {
       socket.off('chat:message', handleMessage);
       socket.off('user:online', handleOnline);
@@ -112,34 +113,59 @@ export default function ChatPage() {
       socket.off('chat:stop-typing', handleStopTyping);
       disconnectSocket();
     };
-  }, [dispatch, conversations]);
+  }, [dispatch]); // stable dependency only
 
-  // Initial fetch
+  // Join socket rooms whenever the conversation list changes (separate effect,
+  // does NOT disconnect/reconnect the socket).
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !Array.isArray(conversations) || conversations.length === 0) return;
+    conversations.forEach(conv => {
+      socket.emit('chat:join', conv.conversationId || conv._id);
+    });
+  }, [conversations]);
+
+  // Initial data fetch – runs once on mount.
+  // clearChat only on TRUE unmount (guarded by mountedRef).
   useEffect(() => {
     dispatch(fetchConversations());
     dispatch(fetchUnreadCount());
-    
+
     return () => {
-      dispatch(clearChat());
+      // Only reset state when truly leaving the page, not during HMR / re-renders
+      if (!mountedRef.current) {
+        dispatch(clearChat());
+      }
     };
   }, [dispatch]);
 
   // Handle URL param for active conversation
+  // Use a ref to track if we already selected a conversation for this URL to
+  // avoid re-selecting on every conversations update.
+  const selectedConvRef = useRef(null);
   useEffect(() => {
-    if (actualConvId && actualConvId !== 'undefined' && Array.isArray(conversations)) {
-      if (loading) return;
-      
-      const conv = conversations.find(c => c.conversationId === actualConvId || c._id === actualConvId);
-      if (conv) {
-        handleSelectConversation(conv);
-      } else {
-        // If not found in list but we have URL, we might need to fetch it specifically or create a stub active conversation
-        dispatch(setActiveConversation({ conversationId: actualConvId }));
-        dispatch(fetchMessages(actualConvId));
-        setMobileView('chat');
-      }
+    if (!actualConvId || actualConvId === 'undefined' || !Array.isArray(conversations)) return;
+    if (loading) return;
+
+    const conv = conversations.find(c => c.conversationId === actualConvId || c._id === actualConvId);
+    
+    if (conv) {
+      if (selectedConvRef.current === actualConvId && activeConversation?._id === conv._id && activeConversation?.otherParty) return;
+      selectedConvRef.current = actualConvId;
+      const id = conv.conversationId || conv._id;
+      dispatch(setActiveConversation(conv));
+      dispatch(fetchMessages(id));
+      setMobileView('chat');
+      const basePath = currentUser?.role === 'merchant' ? '/merchant/chat' : '/helping-center/chat';
+      window.history.replaceState(null, '', `${basePath}/${id}`);
+    } else {
+      if (selectedConvRef.current === actualConvId) return;
+      selectedConvRef.current = actualConvId;
+      dispatch(setActiveConversation({ conversationId: actualConvId }));
+      dispatch(fetchMessages(actualConvId));
+      setMobileView('chat');
     }
-  }, [actualConvId, conversations, loading]);
+  }, [actualConvId, conversations, loading, dispatch, currentUser?.role, activeConversation]);
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
@@ -150,16 +176,17 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages, typingUsers]);
 
-  const handleSelectConversation = (conv) => {
+  const handleSelectConversation = useCallback((conv) => {
     const id = conv.conversationId || conv._id;
+    selectedConvRef.current = id;
     dispatch(setActiveConversation(conv));
     dispatch(fetchMessages(id));
     setMobileView('chat');
-    
-    // Update URL if needed (shallow routing)
+
+    // Update URL (shallow routing)
     const basePath = currentUser?.role === 'merchant' ? '/merchant/chat' : '/helping-center/chat';
     window.history.replaceState(null, '', `${basePath}/${id}`);
-  };
+  }, [dispatch, currentUser?.role]);
 
   const getOtherParty = (conversation) => {
     if (!conversation) return null;
@@ -355,7 +382,6 @@ export default function ChatPage() {
   const isTyping = convId && typingUsers[convId]?.[activeOtherPartyDetails.id];
 
   return (
-    <ChatErrorBoundary>
     <div className="h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] -m-4 md:-m-6 lg:-m-8 bg-slate-50 dark:bg-dark-900 flex overflow-hidden">
       
       {/* LEFT PANEL: Conversation List */}
@@ -392,7 +418,8 @@ export default function ChatPage() {
                   ? (otherPartyId.businessName || otherPartyId.centerName || otherPartyId.name || 'User')
                   : (typeof otherPartyId === 'string' ? `User ${otherPartyId.substring(0, 4)}` : 'User'));
               const isOnline = onlineUsers[typeof otherPartyId === 'string' ? otherPartyId : otherPartyId?._id];
-              const lastMsg = conv.lastMessage;
+              // Handle both `lastMessage` and `latestMessage` from server
+              const lastMsg = conv.lastMessage || conv.latestMessage;
               const isUnread = conv.unreadCount > 0;
               const isActive = (activeConversation?.conversationId === conv.conversationId || activeConversation?._id === conv._id);
               const nameInitial = (name || 'U').charAt(0).toUpperCase();
@@ -653,6 +680,13 @@ export default function ChatPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <ChatErrorBoundary>
+      <ChatPageContent />
     </ChatErrorBoundary>
   );
 }

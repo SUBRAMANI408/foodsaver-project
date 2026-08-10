@@ -5,7 +5,7 @@ import {
   Leaf, LayoutDashboard, Search, ShoppingBag, Bell, Star,
   Settings, LogOut, ChevronLeft, ChevronRight, Home, Package,
   TrendingUp, Gift, Truck, Users, Shield, Heart, BarChart3,
-  Store, CreditCard, MessageSquare, MapPin,
+  Store, CreditCard, MessageSquare, MapPin, Inbox
 } from 'lucide-react';
 import { toggleSidebar } from '../redux/slices/uiSlice';
 import { logout } from '../redux/slices/authSlice';
@@ -23,6 +23,8 @@ const menuByRole = {
   ],
   merchant: [
     { icon: LayoutDashboard, label: 'Dashboard', to: '/merchant' },
+    { icon: Users, label: 'Community Feed', to: '/merchant/community' },
+    { icon: Inbox, label: 'Food Requests', to: '/merchant/requests' },
     { icon: Package, label: 'My Food', to: '/merchant/food' },
     { icon: ShoppingBag, label: 'Orders', to: '/merchant/orders' },
     { icon: Gift, label: 'NGO Sponsorships', to: '/merchant/donations' },

@@ -56,7 +56,7 @@ export default function ChatPage() {
     if (!socket) return;
     
     // Join all conversation rooms when conversations load
-    if (conversations.length > 0) {
+    if (Array.isArray(conversations) && conversations.length > 0) {
       conversations.forEach(conv => {
         socket.emit('chat:join', conv.conversationId || conv._id);
       });
@@ -100,7 +100,7 @@ export default function ChatPage() {
 
   // Handle URL param for active conversation
   useEffect(() => {
-    if (actualConvId && conversations.length > 0) {
+    if (actualConvId && Array.isArray(conversations) && conversations.length > 0) {
       const conv = conversations.find(c => c.conversationId === actualConvId || c._id === actualConvId);
       if (conv) {
         handleSelectConversation(conv);
@@ -240,10 +240,10 @@ export default function ChatPage() {
     }
   };
 
-  const filteredConversations = conversations.filter(c => {
+  const filteredConversations = Array.isArray(conversations) ? conversations.filter(c => {
     // If we have names to search against, implement here. For now, simple return true
     return true; 
-  });
+  }) : [];
 
   const renderMessageContent = (msg) => {
     switch (msg.type) {

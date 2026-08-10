@@ -145,7 +145,7 @@ const chatSlice = createSlice({
       .addCase(fetchConversations.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(fetchConversations.fulfilled, (state, action) => {
         state.loading = false;
-        state.conversations = action.payload;
+        state.conversations = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(fetchConversations.rejected, (state, action) => {
         state.loading = false;
@@ -156,7 +156,7 @@ const chatSlice = createSlice({
       .addCase(fetchMessages.pending, (state) => { state.messagesLoading = true; state.error = null; })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.messagesLoading = false;
-        state.messages = action.payload;
+        state.messages = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.messagesLoading = false;

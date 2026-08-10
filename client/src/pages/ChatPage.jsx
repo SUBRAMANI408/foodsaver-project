@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, MapPin, Clock, Calendar, Utensils, Check, CheckCheck, ArrowLeft, Search, Circle, MessageCircle, X, Loader2, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -25,6 +25,9 @@ export default function ChatPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { conversationId: urlConversationId } = useParams();
+  const [searchParams] = useSearchParams();
+  const convQueryId = searchParams.get('conv');
+  const actualConvId = urlConversationId || convQueryId;
   
   const currentUser = useSelector((s) => s.auth.user);
   const currentUserId = currentUser?._id;
@@ -97,18 +100,18 @@ export default function ChatPage() {
 
   // Handle URL param for active conversation
   useEffect(() => {
-    if (urlConversationId && conversations.length > 0) {
-      const conv = conversations.find(c => c.conversationId === urlConversationId || c._id === urlConversationId);
+    if (actualConvId && conversations.length > 0) {
+      const conv = conversations.find(c => c.conversationId === actualConvId || c._id === actualConvId);
       if (conv) {
         handleSelectConversation(conv);
       } else {
         // If not found in list but we have URL, we might need to fetch it specifically or create a stub active conversation
-        dispatch(setActiveConversation({ conversationId: urlConversationId }));
-        dispatch(fetchMessages(urlConversationId));
+        dispatch(setActiveConversation({ conversationId: actualConvId }));
+        dispatch(fetchMessages(actualConvId));
         setMobileView('chat');
       }
     }
-  }, [urlConversationId, conversations]);
+  }, [actualConvId, conversations]);
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {

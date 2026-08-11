@@ -29,9 +29,23 @@ export default function MerchantFood({ showAddForm = false }) {
     setEditItem(null);
   };
 
+  const getDisplayStatus = (food) => {
+    if (['available', 'expiring_soon'].includes(food.status)) {
+      if (food.expiryTime && new Date(food.expiryTime) < new Date()) {
+        return 'expired';
+      }
+    }
+    return food.status;
+  };
+
   useEffect(() => { dispatch(fetchMerchantFood({})); }, [dispatch]);
 
-  const filtered = filter === 'all' ? merchantItems : merchantItems.filter((f) => f.status === filter);
+  const displayItems = merchantItems.map(item => ({
+    ...item,
+    displayStatus: getDisplayStatus(item)
+  }));
+
+  const filtered = filter === 'all' ? displayItems : displayItems.filter((f) => f.displayStatus === filter);
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete "${name}"?`)) return;
@@ -91,7 +105,7 @@ export default function MerchantFood({ showAddForm = false }) {
                   <div className="w-full h-full flex items-center justify-center text-4xl">🍛</div>
                 )}
                 <div className="absolute top-2 left-2 flex gap-1.5">
-                  <span className={`badge text-xs ${statusColors[food.status]}`}>{food.status?.replace('_', ' ')}</span>
+                  <span className={`badge text-xs ${statusColors[food.displayStatus]}`}>{food.displayStatus?.replace('_', ' ')}</span>
                   <span className="badge bg-primary-500 text-white text-xs font-bold">{food.discountPercentage}% OFF</span>
                 </div>
               </div>
@@ -113,7 +127,7 @@ export default function MerchantFood({ showAddForm = false }) {
                   <button onClick={() => handleOpenEdit(food)} className="btn-ghost btn-sm flex-1 text-xs">
                     <Edit className="w-3.5 h-3.5" /> Edit
                   </button>
-                  {['available', 'expiring_soon', 'expired'].includes(food.status) && (
+                  {['available', 'expiring_soon', 'expired'].includes(food.displayStatus) && (
                     <button className="btn-sm btn border border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 text-xs hover:bg-purple-50 dark:hover:bg-purple-950/30">
                       <Gift className="w-3.5 h-3.5" /> Donate
                     </button>

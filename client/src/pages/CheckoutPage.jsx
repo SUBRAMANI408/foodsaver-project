@@ -7,11 +7,7 @@ import { createOrder } from '../redux/slices/orderSlice';
 import toast from 'react-hot-toast';
 
 const PAYMENT_METHODS = [
-  { id: 'upi', label: 'UPI', icon: '📱', desc: 'Pay via any UPI app' },
-  { id: 'credit_card', label: 'Credit Card', icon: '💳', desc: 'Visa, Mastercard, Amex' },
-  { id: 'debit_card', label: 'Debit Card', icon: '🏦', desc: 'All major banks' },
-  { id: 'net_banking', label: 'Net Banking', icon: '🏧', desc: 'All major banks' },
-  { id: 'cash_on_delivery', label: 'Cash on Delivery', icon: '💵', desc: 'Pay at pickup/delivery' },
+  { id: 'cash_on_delivery', label: 'Pay at Pickup', icon: '🏪', desc: 'Pay when you collect your order at the shop' },
 ];
 
 export default function CheckoutPage() {
@@ -19,15 +15,13 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const cart = useSelector((s) => s.orders.cart);
   const { loading } = useSelector((s) => s.orders);
-  const [paymentMethod, setPaymentMethod] = useState('upi');
-  const [deliveryType, setDeliveryType] = useState('pickup');
+  const [paymentMethod, setPaymentMethod] = useState('cash_on_delivery');
   const [specialInstructions, setSpecialInstructions] = useState('');
 
   const subtotal = cart.reduce((acc, item) => acc + item.discountedPrice * item.cartQuantity, 0);
   const originalTotal = cart.reduce((acc, item) => acc + item.originalPrice * item.cartQuantity, 0);
   const savings = originalTotal - subtotal;
-  const deliveryFee = deliveryType === 'delivery' ? 30 : 0;
-  const total = subtotal + deliveryFee;
+  const total = subtotal;
 
   const merchantId = cart[0]?.merchant?._id || cart[0]?.merchant;
 
@@ -37,7 +31,7 @@ export default function CheckoutPage() {
     const orderData = {
       items: cart.map((item) => ({ foodItemId: item._id, quantity: item.cartQuantity })),
       paymentMethod,
-      deliveryType,
+      deliveryType: 'pickup',
       specialInstructions,
     };
 
@@ -65,27 +59,6 @@ export default function CheckoutPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          {/* Delivery Type */}
-          <div className="card p-5">
-            <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Delivery Option</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { id: 'pickup', label: 'Self Pickup', desc: 'Pick up from store', icon: '🏪' },
-                { id: 'delivery', label: 'Home Delivery', desc: '+₹30 delivery charge', icon: '🚚' },
-              ].map(({ id, label, desc, icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setDeliveryType(id)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all duration-200 ${deliveryType === id ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/50' : 'border-slate-200 dark:border-dark-600'}`}
-                >
-                  <div className="text-2xl mb-1">{icon}</div>
-                  <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">{label}</div>
-                  <div className="text-xs text-slate-400">{desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Payment Method */}
           <div className="card p-5">
             <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Payment Method</h3>
@@ -147,9 +120,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between text-primary-600 dark:text-primary-400">
                 <span>Discount</span><span>-₹{savings.toFixed(0)}</span>
               </div>
-              <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                <span>Delivery</span><span>{deliveryFee > 0 ? `₹${deliveryFee}` : 'FREE'}</span>
-              </div>
+
               <div className="divider" />
               <div className="flex justify-between font-bold text-lg text-slate-900 dark:text-white">
                 <span>Total</span><span>₹{total.toFixed(0)}</span>

@@ -7,7 +7,6 @@ import { dirname, resolve } from 'path';
 // Import Models
 import User from '../models/User.js';
 import Merchant from '../models/Merchant.js';
-import DeliveryPartner from '../models/DeliveryPartner.js';
 import HelpingCenter from '../models/HelpingCenter.js';
 import FoodItem from '../models/FoodItem.js';
 import MerchantPost from '../models/MerchantPost.js';
@@ -62,7 +61,6 @@ const runSeed = async () => {
     // Clear existing data
     await User.deleteMany({});
     await Merchant.deleteMany({});
-    await DeliveryPartner.deleteMany({});
     await HelpingCenter.deleteMany({});
     await FoodItem.deleteMany({});
     await MerchantPost.deleteMany({});
@@ -121,25 +119,7 @@ const runSeed = async () => {
     await HelpingCenter.insertMany(ngos);
     console.log('✅ 5 NGOs created');
 
-    // 3. Generate Delivery Partners
-    const deliveryPartners = [];
-    for (let i = 0; i < 5; i++) {
-      deliveryPartners.push({
-        name: getRandom(NAMES),
-        email: `delivery${i + 1}@example.com`,
-        phone: `78000000${String(i).padStart(2, '0')}`,
-        password: defaultPassword,
-        role: 'delivery_partner',
-        isVerified: true,
-        isActive: true,
-        vehicleType: 'motorcycle',
-        vehicleNumber: `KA-01-AB-${1000 + i}`,
-        licenseNumber: `DL-14-2023-${2000 + i}`,
-        profileImage: getRandom(PROFILE_IMAGES)
-      });
-    }
-    await DeliveryPartner.insertMany(deliveryPartners);
-    console.log('✅ 5 Delivery Partners created');
+
 
     // 4. Generate Merchants
     const merchants = [];
@@ -174,6 +154,9 @@ const runSeed = async () => {
     const foodNames = ["Truffle Pasta", "Margarita Pizza", "Paneer Tikka", "Choco Lava Cake", "Caesar Salad", "Sushi Platter", "Garlic Bread", "Berry Smoothie", "Grill Burger", "Veg Biryani", "Muffins", "Croissants"];
     
     for (let merchant of insertedMerchants) {
+      // For demo purposes, we assign all food items to the first merchant
+      // so when the user logs in with the test credentials, they see all orders
+      const targetMerchant = insertedMerchants[0];
       const numFoods = getRandomInt(2, 5);
       for (let j = 0; j < numFoods; j++) {
         const originalPrice = getRandomInt(100, 800);
@@ -182,7 +165,7 @@ const runSeed = async () => {
         const quantity = getRandomInt(1, 10);
         
         foods.push({
-          merchant: merchant._id,
+          merchant: targetMerchant._id,
           name: `${getRandom(foodNames)} (Surplus)`,
           description: 'Perfectly good food, just made in excess. Save food, save money!',
           originalPrice,

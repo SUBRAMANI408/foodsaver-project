@@ -24,6 +24,7 @@ import requirementRoutes from './routes/requirementRoutes.js';
 import merchantCommunityRoutes from './routes/merchantCommunityRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { setupSockets } from './sockets/socketHandler.js';
+import { startExpireOrdersCron } from './cron/expireOrders.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -86,6 +87,7 @@ app.use('/api/requirements', requirementRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/community', merchantCommunityRoutes);
 
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'SaveBite API is running 🚀', timestamp: new Date() });
@@ -99,8 +101,11 @@ app.use('*', (req, res) => {
 // Error handler
 app.use(errorHandler);
 
-// Socket setup
+// Start Socket.io handlers
 setupSockets(io);
+
+// Start Cron Jobs
+startExpireOrdersCron(io);
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {

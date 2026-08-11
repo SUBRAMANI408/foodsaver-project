@@ -11,6 +11,7 @@ import {
   getMySponsorships,
   getRequirement,
   cancelRequirement,
+  updateRequirement,
 } from '../controllers/requirementController.js';
 
 const router = express.Router();
@@ -21,6 +22,7 @@ router.get('/my', protect, authorize('helping_center'), getMyRequirements);
 router.put('/:id/sponsorships/:sponsorshipId/accept', protect, authorize('helping_center'), acceptSponsorship);
 router.put('/:id/sponsorships/:sponsorshipId/reject', protect, authorize('helping_center'), rejectSponsorship);
 router.delete('/:id', protect, authorize('helping_center'), cancelRequirement);
+router.put('/:id', protect, authorize('helping_center'), updateRequirement);
 
 // Merchant Routes
 router.get('/nearby', protect, authorize('merchant'), getNearbyRequirements);

@@ -10,6 +10,7 @@ const uiSlice = createSlice({
     unreadCount: 0,
     searchQuery: '',
     activeModal: null,
+    pushEnabled: localStorage.getItem('savebite_push') !== 'false',
   },
   reducers: {
     toggleDarkMode: (state) => {
@@ -27,6 +28,10 @@ const uiSlice = createSlice({
     setSearchQuery: (state, action) => { state.searchQuery = action.payload; },
     setActiveModal: (state, action) => { state.activeModal = action.payload; },
     closeModal: (state) => { state.activeModal = null; },
+    togglePushNotifications: (state) => {
+      state.pushEnabled = !state.pushEnabled;
+      localStorage.setItem('savebite_push', state.pushEnabled);
+    },
     setNotifications: (state, action) => {
       state.notifications = action.payload.data;
       state.unreadCount = action.payload.unreadCount;
@@ -47,6 +52,6 @@ const uiSlice = createSlice({
 
 export const {
   toggleDarkMode, toggleSidebar, toggleMobileSidebar, closeMobileSidebar,
-  setSearchQuery, setActiveModal, closeModal, setNotifications, markNotificationRead, addNotification,
+  setSearchQuery, setActiveModal, closeModal, togglePushNotifications, setNotifications, markNotificationRead, addNotification,
 } = uiSlice.actions;
 export default uiSlice.reducer;

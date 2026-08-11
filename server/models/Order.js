@@ -4,7 +4,6 @@ const orderSchema = new mongoose.Schema({
   orderNumber: { type: String, unique: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   merchant: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true },
-  deliveryPartner: { type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryPartner' },
   items: [{
     foodItem: { type: mongoose.Schema.Types.ObjectId, ref: 'FoodItem', required: true },
     name: { type: String, required: true },
@@ -42,6 +41,8 @@ const orderSchema = new mongoose.Schema({
   estimatedPickupTime: { type: Date },
   estimatedDeliveryTime: { type: Date },
   actualDeliveryTime: { type: Date },
+  expiresAt: { type: Date },
+  expiryAlertSent: { type: Boolean, default: false },
   specialInstructions: { type: String },
   cancellationReason: { type: String },
   statusHistory: [{

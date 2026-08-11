@@ -6,6 +6,7 @@ import { addToCart } from '../redux/slices/orderSlice';
 import toast from 'react-hot-toast';
 import { format, isAfter, isBefore, addHours } from 'date-fns';
 import { useState } from 'react';
+import CountdownTimer from './CountdownTimer';
 
 const statusColors = {
   available: 'badge-green',
@@ -27,8 +28,8 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
   const [imageError, setImageError] = useState(false);
 
   const isExpiringSoon = food.status === 'expiring_soon';
-  const timeLeft = food.expiryTime ? format(new Date(food.expiryTime), 'h:mm a') : null;
   const computedPrice = food.discountedPrice !== undefined ? food.discountedPrice : (food.originalPrice - (food.originalPrice * (food.discountPercentage || 0) / 100));
+  const isShopClosed = food.merchant && food.merchant.isOpen === false;
 
   const handleAddToCart = (e) => {
     e.preventDefault();
@@ -38,6 +39,10 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
     }
     if (role !== 'user') {
       toast.error('Only customers can order food');
+      return;
+    }
+    if (isShopClosed) {
+      toast.error('This shop is currently closed');
       return;
     }
     dispatch(addToCart({ item: food, quantity: 1 }));
@@ -60,6 +65,11 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
             <div className="absolute top-2 left-2">
               <span className="badge bg-primary-500 text-white text-xs font-bold">{food.discountPercentage}% OFF</span>
             </div>
+            {isShopClosed && (
+              <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center">
+                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow">Shop Closed</span>
+              </div>
+            )}
           </div>
 
           {/* Content */}
@@ -76,10 +86,10 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
                 <span className="font-bold text-primary-600 dark:text-primary-400">₹{computedPrice.toFixed(0)}</span>
                 <span className="text-xs text-slate-400 line-through">₹{food.originalPrice}</span>
               </div>
-              {timeLeft && (
-                <div className="flex items-center gap-1 text-xs text-slate-400">
+              {food.expiryTime && (
+                <div className="flex items-center gap-1 text-xs text-slate-400 mt-1">
                   <Clock className="w-3 h-3" />
-                  Expires {timeLeft}
+                  Expires in <CountdownTimer expiryTime={food.expiryTime} />
                 </div>
               )}
               <div className="flex items-center gap-1 text-xs text-slate-400">
@@ -93,7 +103,7 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
           <div className="flex-shrink-0">
             <button
               onClick={handleAddToCart}
-              disabled={!['available', 'expiring_soon'].includes(food.status)}
+              disabled={!['available', 'expiring_soon'].includes(food.status) || isShopClosed}
               className="btn-primary btn-sm disabled:opacity-40"
             >
               <ShoppingCart className="w-4 h-4" />
@@ -145,6 +155,12 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
             </span>
           </div>
 
+          {isShopClosed && (
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] z-10 flex items-center justify-center">
+              <span className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">Shop Closed</span>
+            </div>
+          )}
+
           {/* Veg/Non-veg indicator */}
           <div className="absolute bottom-3 left-3">
             <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${food.isVeg ? 'border-primary-500 bg-white' : 'border-red-500 bg-white'}`}>
@@ -183,10 +199,10 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
                 <Tag className="w-3 h-3" /> {food.availableQuantity} {food.unit} left
               </div>
             </div>
-            {timeLeft && (
+            {food.expiryTime && (
               <div className={`text-xs font-medium flex items-center gap-1 ${isExpiringSoon ? 'text-accent-500' : 'text-slate-400'}`}>
                 <Clock className="w-3.5 h-3.5" />
-                {timeLeft}
+                <CountdownTimer expiryTime={food.expiryTime} />
               </div>
             )}
           </div>
@@ -194,11 +210,11 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
           {/* Add to Cart Button */}
           <button
             onClick={handleAddToCart}
-            disabled={!['available', 'expiring_soon'].includes(food.status)}
+            disabled={!['available', 'expiring_soon'].includes(food.status) || isShopClosed}
             className="btn-primary w-full btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ShoppingCart className="w-3.5 h-3.5" />
-            {['available', 'expiring_soon'].includes(food.status) ? 'Add to Cart' : food.status.replace('_', ' ')}
+            {isShopClosed ? 'Shop Closed' : ['available', 'selling_fast', 'expiring_soon'].includes(food.status) ? 'Add to Cart' : (food.status || 'available').replace('_', ' ')}
           </button>
         </div>
       </Link>

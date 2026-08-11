@@ -67,3 +67,4 @@ export const adminService = {
   getMerchants: (params) => api.get('/admin/merchants', { params }),
   verifyMerchant: (id) => api.put(`/admin/merchants/${id}/verify`),
 };
+

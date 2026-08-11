@@ -38,7 +38,6 @@ const merchantSchema = z.object({
 const ROLES = [
   { value: 'user', label: 'Customer', icon: User, desc: 'Buy discounted food near you', color: 'from-primary-500 to-primary-600' },
   { value: 'merchant', label: 'Merchant', icon: Store, desc: 'Sell leftover food & increase revenue', color: 'from-accent-500 to-orange-500' },
-  { value: 'delivery_partner', label: 'Delivery Partner', icon: Truck, desc: 'Deliver orders & earn money', color: 'from-blue-500 to-blue-600' },
   { value: 'helping_center', label: 'NGO / Helping Center', icon: Heart, desc: 'Accept food donations', color: 'from-pink-500 to-rose-500' },
 ];
 
@@ -131,7 +130,7 @@ export default function RegisterPage() {
           <button
             onClick={() => {
               toast.success('Account verified! Welcome to SaveBite 🎉');
-              const paths = { admin: '/admin', merchant: '/merchant', delivery_partner: '/delivery', helping_center: '/helping-center', user: '/dashboard' };
+              const paths = { admin: '/admin', merchant: '/merchant', helping_center: '/helping-center', user: '/dashboard' };
               navigate(paths[selectedRole] || '/dashboard');
             }}
             disabled={otp.length !== 6}
@@ -284,33 +283,6 @@ export default function RegisterPage() {
                     <div>
                       <label className="label">Closing Time</label>
                       <input {...register('closingTime')} type="time" className="input" defaultValue="22:00" />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {selectedRole === 'delivery_partner' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-4 overflow-hidden"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Vehicle Type</label>
-                      <select {...register('vehicleType')} className="input">
-                        <option value="">Select vehicle...</option>
-                        {VEHICLE_TYPES.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="label">Vehicle Number</label>
-                      <input {...register('vehicleNumber')} placeholder="KA 01 AB 1234" className="input" />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="label">License Number</label>
-                      <input {...register('licenseNumber')} placeholder="KA1234567890" className="input" />
                     </div>
                   </div>
                 </motion.div>

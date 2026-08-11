@@ -4,6 +4,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Toaster } from 'react-hot-toast';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { getMe, setInitialized } from './redux/slices/authSlice';
+import { addNotification } from './redux/slices/uiSlice';
+import { connectSocket, getSocket, disconnectSocket } from './services/socket';
+import toast from 'react-hot-toast';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -15,6 +18,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import FoodListPage from './pages/FoodListPage';
 import FoodDetailPage from './pages/FoodDetailPage';
+import WishlistPage from './pages/user/WishlistPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -34,19 +38,21 @@ import CommunityFeed from './pages/merchant/CommunityFeed';
 import ManageRequests from './pages/merchant/ManageRequests';
 import MerchantDirectory from './pages/merchant/MerchantDirectory';
 import MerchantChat from './pages/merchant/MerchantChat';
+import MerchantReviews from './pages/merchant/MerchantReviews';
 
 // Pages - Admin Dashboard
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminMerchants from './pages/admin/AdminMerchants';
 import AdminAnalytics from './pages/admin/AdminAnalytics';
-
-// Pages - Delivery Partner
-import DeliveryDashboard from './pages/delivery/DeliveryDashboard';
+import AdminPayments from './pages/admin/AdminPayments';
+import AdminFraud from './pages/admin/AdminFraud';
+import AdminComplaints from './pages/admin/AdminComplaints';
 
 // Pages - Helping Center
 import HelpingCenterDashboard from './pages/helpingcenter/HelpingCenterDashboard';
 import HelpingCenterRequirements from './pages/helpingcenter/HelpingCenterRequirements';
+import HelpingCenterReports from './pages/helpingcenter/HelpingCenterReports';
 import MerchantSponsorships from './pages/merchant/MerchantSponsorships';
 
 // Misc
@@ -106,10 +112,44 @@ export default function App() {
     }
   }, [dispatch, darkMode]); // removing undefined dependencies
 
+  const pushEnabled = useSelector((s) => s.ui.pushEnabled);
+  const { user } = useSelector((s) => s.auth);
+
+  useEffect(() => {
+    if (user && user._id) {
+      const socket = connectSocket();
+      if (socket) {
+        const handleNotification = (notif) => {
+          if (pushEnabled) {
+            toast.success(notif.message || 'New notification', { icon: '🔔' });
+          }
+          dispatch(addNotification(notif));
+        };
+
+        const handleOrderUpdate = (data) => {
+          if (pushEnabled) {
+            toast(data.message || 'Order update', { icon: '📦' });
+          }
+          // Also add to notifications list if needed
+        };
+
+        socket.on('notification:new', handleNotification);
+        socket.on('order:update', handleOrderUpdate);
+        socket.on('order:new', handleOrderUpdate);
+
+        return () => {
+          socket.off('notification:new', handleNotification);
+          socket.off('order:update', handleOrderUpdate);
+          socket.off('order:new', handleOrderUpdate);
+        };
+      }
+    }
+  }, [user, pushEnabled, dispatch]);
+
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || '1234567890-dummy.apps.googleusercontent.com'}>
       <Toaster
-        position="top-right"
+        position="bottom-right"
         toastOptions={{
           duration: 3000,
           style: {
@@ -129,13 +169,17 @@ export default function App() {
         {/* Public Routes */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
+          <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
+        </Route>
+
+        {/* Dashboard Layout Routes */}
+        <Route element={<DashboardLayout />}>
           <Route path="/food" element={<FoodListPage />} />
           <Route path="/food/:id" element={<FoodDetailPage />} />
           <Route path="/merchants" element={<MerchantsPage />} />
+          <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/cart" element={<CartPage />} />
-
-          <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
-          <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
         </Route>
 
         {/* Checkout */}
@@ -162,9 +206,11 @@ export default function App() {
           <Route path="community" element={<CommunityFeed />} />
           <Route path="requests" element={<ManageRequests />} />
           <Route path="directory" element={<MerchantDirectory />} />
-          <Route path="chat" element={<MerchantChat />} />
-          <Route path="chat/:conversationId" element={<MerchantChat />} />
-          <Route path="reviews" element={<div className="text-slate-400 p-4">Reviews page coming soon...</div>} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="chat/:conversationId" element={<ChatPage />} />
+          <Route path="community-chat" element={<MerchantChat />} />
+          <Route path="community-chat/:conversationId" element={<MerchantChat />} />
+          <Route path="reviews" element={<MerchantReviews />} />
         </Route>
 
         {/* Admin Dashboard */}
@@ -175,18 +221,9 @@ export default function App() {
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="delivery" element={<div className="text-slate-400 p-4">Delivery management coming soon...</div>} />
           <Route path="centers" element={<div className="text-slate-400 p-4">Helping centers coming soon...</div>} />
-          <Route path="payments" element={<div className="text-slate-400 p-4">Payments management coming soon...</div>} />
-          <Route path="fraud" element={<div className="text-slate-400 p-4">Fraud detection coming soon...</div>} />
-          <Route path="complaints" element={<div className="text-slate-400 p-4">Complaints coming soon...</div>} />
-        </Route>
-
-        {/* Delivery Dashboard */}
-        <Route path="/delivery" element={<PrivateRoute allowedRoles={['delivery_partner']}><DashboardLayout /></PrivateRoute>}>
-          <Route index element={<DeliveryDashboard />} />
-          <Route path="active" element={<div className="text-slate-400 p-4">Active deliveries coming soon...</div>} />
-          <Route path="history" element={<div className="text-slate-400 p-4">Delivery history coming soon...</div>} />
-          <Route path="earnings" element={<div className="text-slate-400 p-4">Earnings coming soon...</div>} />
-          <Route path="map" element={<div className="text-slate-400 p-4">Route tracking coming soon...</div>} />
+          <Route path="payments" element={<AdminPayments />} />
+          <Route path="fraud" element={<AdminFraud />} />
+          <Route path="complaints" element={<AdminComplaints />} />
         </Route>
 
         {/* Helping Center Dashboard */}
@@ -196,8 +233,7 @@ export default function App() {
           <Route path="requirements" element={<HelpingCenterRequirements />} />
           <Route path="chat" element={<ChatPage />} />
           <Route path="chat/:conversationId" element={<ChatPage />} />
-          <Route path="inventory" element={<div className="text-slate-400 p-4">Inventory coming soon...</div>} />
-          <Route path="reports" element={<div className="text-slate-400 p-4">Reports coming soon...</div>} />
+          <Route path="reports" element={<HelpingCenterReports />} />
         </Route>
 
         {/* Shared Routes */}

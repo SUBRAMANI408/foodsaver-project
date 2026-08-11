@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Merchant from '../models/Merchant.js';
-import DeliveryPartner from '../models/DeliveryPartner.js';
 import HelpingCenter from '../models/HelpingCenter.js';
 
 export const protect = async (req, res, next) => {
@@ -26,9 +25,7 @@ export const protect = async (req, res, next) => {
       case 'merchant':
         user = await Merchant.findById(decoded.id);
         break;
-      case 'delivery_partner':
-        user = await DeliveryPartner.findById(decoded.id);
-        break;
+
       case 'helping_center':
         user = await HelpingCenter.findById(decoded.id);
         break;

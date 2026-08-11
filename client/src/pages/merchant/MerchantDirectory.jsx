@@ -124,7 +124,7 @@ const MerchantDirectory = () => {
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => navigate(`/merchant/chat?merchantId=${merchant._id}`)}
+                  onClick={() => navigate(`/merchant/community-chat?merchantId=${merchant._id}`)}
                   className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors font-medium text-sm"
                 >
                   <MessageSquare className="w-4 h-4" />

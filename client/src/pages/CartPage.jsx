@@ -143,10 +143,7 @@ export default function CartPage() {
                 <span>Discount</span>
                 <span>- ₹{totalSavings.toFixed(0)}</span>
               </div>
-              <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                <span>Delivery Fee</span>
-                <span className="text-primary-500">FREE</span>
-              </div>
+
               <div className="divider" />
               <div className="flex justify-between font-bold text-lg text-slate-900 dark:text-white">
                 <span>Total</span>

@@ -52,8 +52,6 @@ export default function AdminDashboard() {
   const statCards = stats ? [
     { icon: Users, label: 'Total Users', value: stats.totalUsers?.toLocaleString(), color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-950/50', change: `${stats.newUsersToday || 0} new today` },
     { icon: Store, label: 'Merchants', value: stats.totalMerchants?.toLocaleString(), color: 'text-accent-500', bg: 'bg-accent-50 dark:bg-accent-950/50', change: `${stats.pendingMerchants || 0} pending verification` },
-    { icon: Truck, label: 'Delivery Partners', value: stats.totalDelivery?.toLocaleString(), color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-950/50' },
-    { icon: Heart, label: 'Helping Centers', value: stats.totalCenters?.toLocaleString(), color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-950/50' },
     { icon: ShoppingBag, label: 'Total Orders', value: stats.totalOrders?.toLocaleString(), color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-950/50', change: `${stats.todayOrders || 0} today` },
     { icon: DollarSign, label: 'Total Revenue', value: `₹${(stats.totalRevenue || 0).toLocaleString()}`, color: 'text-primary-500', bg: 'bg-primary-50 dark:bg-primary-950/50' },
     { icon: Leaf, label: 'Food Saved', value: `${(stats.totalFoodSaved || 0).toLocaleString()} kg`, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/50' },
@@ -210,8 +208,8 @@ export default function AdminDashboard() {
             {[
               { icon: Users, label: 'Users', to: '/admin/users', color: 'from-blue-500 to-blue-600' },
               { icon: Store, label: 'Merchants', to: '/admin/merchants', color: 'from-accent-500 to-orange-500' },
-              { icon: Truck, label: 'Delivery', to: '/admin/delivery', color: 'from-purple-500 to-purple-600' },
-              { icon: Heart, label: 'Centers', to: '/admin/centers', color: 'from-pink-500 to-pink-600' },
+              { icon: Shield, label: 'Fraud', to: '/admin/fraud', color: 'from-amber-500 to-amber-600' },
+              { icon: CreditCard, label: 'Payments', to: '/admin/payments', color: 'from-primary-500 to-primary-600' },
               { icon: BarChart3, label: 'Analytics', to: '/admin/analytics', color: 'from-primary-500 to-primary-600' },
               { icon: MessageSquare, label: 'Complaints', to: '/admin/complaints', color: 'from-red-500 to-red-600' },
             ].map(({ icon: Icon, label, to, color }) => (

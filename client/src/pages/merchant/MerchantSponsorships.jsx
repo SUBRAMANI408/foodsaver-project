@@ -41,42 +41,56 @@ function SponsorModal({ requirement, onClose, onSubmit, loading, initialData = n
     dispatch(fetchMerchantFood());
   }, [dispatch]);
 
-  const [selectedFoodId, setSelectedFoodId] = useState(initialData?.foodItems?.[0]?.foodId || '');
-  const [qty, setQty] = useState(initialData ? initialData.quantityOffered : '');
-  const [discountPercentage, setDiscountPercentage] = useState(initialData?.foodItems?.[0]?.discountPercentage || 0);
+  const [selectedFoods, setSelectedFoods] = useState(
+    initialData?.foodItems?.length > 0 
+      ? initialData.foodItems.map(item => ({ foodId: item.foodId, quantity: item.quantity, discountPercentage: item.discountPercentage }))
+      : [{ foodId: '', quantity: '', discountPercentage: 0 }]
+  );
   const [notes, setNotes] = useState(initialData ? initialData.notes : '');
 
   const baseRemaining = requirement.remaining ?? (requirement.quantityRequired - (requirement.quantityFulfilled || 0));
   const remainingReq = initialData ? baseRemaining + initialData.quantityOffered : baseRemaining;
 
-  const selectedFood = merchantFoods.find(f => f._id === selectedFoodId);
-  const maxAvailable = selectedFood ? selectedFood.availableQuantity : 0;
-  const maxQty = Math.min(remainingReq, maxAvailable || Infinity);
+  const updateFoodByFoodId = (foodId, field, value) => {
+    const newFoods = [...selectedFoods];
+    const index = newFoods.findIndex(f => f.foodId === foodId);
+    if (index > -1) {
+      newFoods[index][field] = value;
+      setSelectedFoods(newFoods);
+    }
+  };
 
-  const presets = [
-    Math.min(maxQty, 25),
-    Math.min(maxQty, 50),
-    Math.min(maxQty, 75),
-    maxQty,
-  ].filter((v, i, a) => v > 0 && a.indexOf(v) === i && selectedFood);
+  let totalQty = 0;
+  let totalAmount = 0;
+  const foodItemsPayload = [];
 
-  const finalPricePerUnit = selectedFood ? (selectedFood.originalPrice - (selectedFood.originalPrice * (discountPercentage / 100))) : 0;
-  const totalAmount = finalPricePerUnit * (parseInt(qty) || 0);
+  for (const item of selectedFoods) {
+    if (item.foodId && item.quantity) {
+      const food = merchantFoods.find(f => f._id === item.foodId);
+      if (food) {
+        const qty = parseInt(item.quantity) || 0;
+        totalQty += qty;
+        const finalPrice = food.originalPrice - (food.originalPrice * (item.discountPercentage / 100));
+        totalAmount += finalPrice * qty;
+        foodItemsPayload.push({
+          foodId: food._id,
+          name: food.name,
+          quantity: qty,
+          discountPercentage: Number(item.discountPercentage)
+        });
+      }
+    }
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!selectedFoodId) { toast.error('Please select a food item'); return; }
-    if (!qty || parseInt(qty) < 1) { toast.error('Please enter valid quantity'); return; }
+    if (foodItemsPayload.length === 0) { toast.error('Please select at least one food item and enter quantity'); return; }
+    if (totalQty > remainingReq) { toast.error(`Total quantity cannot exceed remaining requirement (${remainingReq})`); return; }
     
     onSubmit(requirement._id, { 
-      quantityOffered: parseInt(qty), 
+      quantityOffered: totalQty, 
       notes,
-      foodItems: [{
-        foodId: selectedFood._id,
-        name: selectedFood.name,
-        quantity: parseInt(qty),
-        discountPercentage: Number(discountPercentage)
-      }]
+      foodItems: foodItemsPayload
     });
   };
 
@@ -86,9 +100,9 @@ function SponsorModal({ requirement, onClose, onSubmit, loading, initialData = n
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white dark:bg-dark-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-dark-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
       >
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-dark-700">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-dark-700 sticky top-0 bg-white dark:bg-dark-900 z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-emerald-500 rounded-xl flex items-center justify-center">
               <Heart className="w-5 h-5 text-white" />
@@ -100,13 +114,13 @@ function SponsorModal({ requirement, onClose, onSubmit, loading, initialData = n
               <p className="text-xs text-slate-400">{requirement.ngoName || requirement.contactName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dark-800 transition-colors">
+          <button type="button" onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dark-800 transition-colors">
             <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
         {/* Requirement summary */}
-        <div className="mx-6 mt-4 p-4 bg-slate-50 dark:bg-dark-800 rounded-xl text-sm space-y-1.5">
+        <div className="mx-6 mt-4 p-4 bg-slate-50 dark:bg-dark-800 rounded-xl text-sm space-y-1.5 border border-slate-100 dark:border-dark-700">
           <div className="flex justify-between">
             <span className="text-slate-500">Meal type</span>
             <span className="font-semibold text-slate-700 dark:text-slate-300">{requirement.mealType}</span>
@@ -119,84 +133,86 @@ function SponsorModal({ requirement, onClose, onSubmit, loading, initialData = n
             <span className="text-slate-500">Still needed</span>
             <span className="font-bold text-primary-600">{baseRemaining} meals</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Required by</span>
-            <span className="font-semibold text-slate-700 dark:text-slate-300">{requirement.requiredTime}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Location</span>
-            <span className="font-semibold text-slate-700 dark:text-slate-300 text-right max-w-[60%]">{requirement.addressText}</span>
-          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 block mb-2">Select Food Item</label>
-            <select
-              value={selectedFoodId}
-              onChange={(e) => setSelectedFoodId(e.target.value)}
-              required
-              className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">-- Choose a food item --</option>
-              {merchantFoods.map(food => (
-                <option key={food._id} value={food._id}>
-                  {food.name} (Qty: {food.availableQuantity}, Price: ₹{food.originalPrice})
-                </option>
-              ))}
-            </select>
-            {selectedFood && (
-              <div className="mt-2 text-xs text-slate-500">
-                Available: <span className="font-semibold">{selectedFood.availableQuantity}</span> | 
-                Original Price: <span className="font-semibold">₹{selectedFood.originalPrice}/unit</span>
-              </div>
-            )}
-          </div>
+          <div className="space-y-4">
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Select Food Items</label>
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+              {merchantFoods.map(food => {
+                const isSelected = selectedFoods.some(f => f.foodId === food._id);
+                const selectedItem = selectedFoods.find(f => f.foodId === food._id) || { quantity: '', discountPercentage: 0 };
+                const maxAllowed = Math.min(food.availableQuantity, remainingReq);
 
-          <div>
-            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 block mb-2">How many meals can you sponsor?</label>
-            <div className="flex gap-2 flex-wrap mb-3">
-              {presets.map((p) => (
-                <button key={p} type="button" onClick={() => setQty(String(p))}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                    qty === String(p)
-                      ? 'bg-primary-600 text-white border-primary-600'
-                      : 'bg-white dark:bg-dark-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-dark-600 hover:border-primary-400'
-                  }`}>
-                  {p} meals
-                </button>
-              ))}
+                return (
+                  <div key={food._id} className={`p-3 rounded-xl border ${isSelected ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/10' : 'border-slate-200 dark:border-dark-700 bg-slate-50 dark:bg-dark-800'}`}>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="mt-1 w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedFoods([...selectedFoods, { foodId: food._id, quantity: '', discountPercentage: 0 }]);
+                          } else {
+                            setSelectedFoods(selectedFoods.filter(f => f.foodId !== food._id));
+                          }
+                        }}
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-slate-800 dark:text-slate-200">{food.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Available: {food.availableQuantity} • Price: ₹{food.originalPrice}</p>
+                      </div>
+                    </label>
+                    
+                    {isSelected && (
+                      <div className="flex gap-3 mt-3 pl-7">
+                        <div className="flex-1">
+                          <label className="text-xs font-medium text-slate-500 block mb-1">Quantity to Sponsor</label>
+                          <input
+                            type="number" min="1" max={maxAllowed} 
+                            value={selectedItem.quantity} 
+                            onChange={(e) => updateFoodByFoodId(food._id, 'quantity', e.target.value)} 
+                            required
+                            className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="Qty"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-xs font-medium text-slate-500 block mb-1">Discount (%)</label>
+                          <input
+                            type="number" min="0" max="100" 
+                            value={selectedItem.discountPercentage} 
+                            onChange={(e) => updateFoodByFoodId(food._id, 'discountPercentage', e.target.value)}
+                            className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="0%"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {merchantFoods.length === 0 && (
+                <div className="p-4 text-center text-sm text-slate-500 bg-slate-50 dark:bg-dark-800 rounded-xl border border-slate-200 dark:border-dark-700">
+                  No active food items found in your inventory.
+                </div>
+              )}
             </div>
-            <input
-              type="number" min="1" max={maxQty} value={qty} onChange={(e) => setQty(e.target.value)} required
-              disabled={!selectedFood}
-              className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
-              placeholder={selectedFood ? `Enter quantity (max: ${maxQty})` : "Select a food item first"}
-            />
           </div>
 
-          <div>
-            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 block mb-2">Discount Percentage (%)</label>
-            <input
-              type="number" min="0" max="100" value={discountPercentage} onChange={(e) => setDiscountPercentage(e.target.value)}
-              disabled={!selectedFood}
-              className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
-              placeholder="e.g. 10"
-            />
-          </div>
-
-          {selectedFood && (
-            <div className="p-3 bg-slate-50 dark:bg-dark-800 rounded-xl text-sm border border-slate-100 dark:border-dark-700">
-              <div className="flex justify-between mb-1">
-                <span className="text-slate-500">Final Price per Unit:</span>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">₹{finalPricePerUnit.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Total Amount:</span>
-                <span className="font-bold text-primary-600">₹{totalAmount.toFixed(2)}</span>
-              </div>
+          <div className="p-4 bg-primary-50 dark:bg-primary-900/20 rounded-xl border border-primary-100 dark:border-primary-800 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-primary-700 dark:text-primary-300 font-medium">Total Quantity:</span>
+              <span className={`font-bold ${totalQty > remainingReq ? 'text-red-500' : 'text-primary-700 dark:text-primary-300'}`}>
+                {totalQty} / {remainingReq} meals
+              </span>
             </div>
-          )}
+            <div className="flex justify-between text-sm">
+              <span className="text-primary-700 dark:text-primary-300 font-medium">Total Amount:</span>
+              <span className="font-bold text-primary-700 dark:text-primary-300">₹{totalAmount.toFixed(2)}</span>
+            </div>
+          </div>
 
           <div>
             <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 block mb-2">Notes (optional)</label>

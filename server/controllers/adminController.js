@@ -1,6 +1,5 @@
 import User from '../models/User.js';
 import Merchant from '../models/Merchant.js';
-import DeliveryPartner from '../models/DeliveryPartner.js';
 import HelpingCenter from '../models/HelpingCenter.js';
 import Order from '../models/Order.js';
 import FoodItem from '../models/FoodItem.js';
@@ -15,12 +14,11 @@ export const getAdminStats = async (req, res, next) => {
     today.setHours(0, 0, 0, 0);
 
     const [
-      totalUsers, totalMerchants, totalDelivery, totalCenters,
+      totalUsers, totalMerchants, totalCenters,
       totalOrders, totalRevenue, todayOrders, activeUsers, pendingMerchants
     ] = await Promise.all([
       User.countDocuments({ role: 'user' }),
       Merchant.countDocuments(),
-      DeliveryPartner.countDocuments(),
       HelpingCenter.countDocuments(),
       Order.countDocuments(),
       Payment.aggregate([{ $match: { status: 'completed' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
@@ -40,7 +38,6 @@ export const getAdminStats = async (req, res, next) => {
       data: {
         totalUsers,
         totalMerchants,
-        totalDelivery,
         totalCenters,
         totalOrders,
         totalRevenue: totalRevenue[0]?.total || 0,

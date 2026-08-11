@@ -7,6 +7,7 @@ import { addToCart } from '../redux/slices/orderSlice';
 import { foodService } from '../services';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import CountdownTimer from '../components/CountdownTimer';
 
 export default function FoodDetailPage() {
   const { id } = useParams();
@@ -17,6 +18,42 @@ export default function FoodDetailPage() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+
+  useEffect(() => {
+    if (id) {
+      const saved = JSON.parse(localStorage.getItem('wishlist') || '[]');
+      setIsWishlisted(saved.includes(id));
+    }
+  }, [id]);
+
+  const toggleWishlist = () => {
+    const saved = JSON.parse(localStorage.getItem('wishlist') || '[]');
+    let updated;
+    if (saved.includes(id)) {
+      updated = saved.filter(itemId => itemId !== id);
+      setIsWishlisted(false);
+      toast.success('Removed from wishlist');
+    } else {
+      updated = [...saved, id];
+      setIsWishlisted(true);
+      toast.success('Added to wishlist');
+    }
+    localStorage.setItem('wishlist', JSON.stringify(updated));
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: food?.name || 'SaveBite Food',
+        text: `Check out ${food?.name} on SaveBite!`,
+        url: window.location.href,
+      }).catch(err => console.log('Error sharing:', err));
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('Link copied to clipboard!');
+    }
+  };
 
   useEffect(() => {
     const fetchFood = async () => {
@@ -33,9 +70,16 @@ export default function FoodDetailPage() {
     fetchFood();
   }, [id]);
 
+  const isAvailable = food ? ['available', 'expiring_soon'].includes(food.status) : false;
+  const isShopClosed = food?.merchant && food.merchant.isOpen === false;
+
   const handleAddToCart = () => {
     if (!isAuthenticated) { toast.error('Please login to order'); return; }
     if (role !== 'user') { toast.error('Only customers can order food'); return; }
+    if (isShopClosed) {
+      toast.error('This shop is currently closed');
+      return;
+    }
     dispatch(addToCart({ item: food, quantity }));
     toast.success(`${quantity}x ${food.name} added to cart! 🛒`);
   };
@@ -58,7 +102,6 @@ export default function FoodDetailPage() {
 
   if (!food) return null;
 
-  const isAvailable = ['available', 'expiring_soon'].includes(food.status);
   const savings = food.originalPrice - food.discountedPrice;
 
   return (
@@ -93,6 +136,13 @@ export default function FoodDetailPage() {
                 <div className={`w-3 h-3 rounded-full ${food.isVeg ? 'bg-primary-500' : 'bg-red-500'}`} />
               </div>
             </div>
+            {isShopClosed && (
+              <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-white">
+                <span className="text-4xl mb-2">🏪</span>
+                <span className="text-xl font-bold bg-red-500 px-4 py-1.5 rounded-full shadow-lg">Shop Closed</span>
+                <p className="mt-2 text-sm text-slate-200">This merchant is currently not accepting orders.</p>
+              </div>
+            )}
           </div>
           {/* Thumbnails */}
           {food.images?.length > 1 && (
@@ -112,10 +162,10 @@ export default function FoodDetailPage() {
             <div className="flex items-start justify-between gap-2">
               <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">{food.name}</h1>
               <div className="flex gap-2">
-                <button className="btn-icon text-slate-400 hover:text-red-500 transition-colors">
-                  <Heart className="w-5 h-5" />
+                <button onClick={toggleWishlist} className={`btn-icon transition-colors ${isWishlisted ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : 'text-slate-400 hover:text-red-500 hover:bg-slate-50 dark:hover:bg-dark-800'}`}>
+                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
                 </button>
-                <button className="btn-icon text-slate-400 hover:text-primary-500 transition-colors">
+                <button onClick={handleShare} className="btn-icon text-slate-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
                   <Share2 className="w-5 h-5" />
                 </button>
               </div>
@@ -149,11 +199,11 @@ export default function FoodDetailPage() {
           <div className="card p-4">
             <div className="flex items-center gap-4">
               <div>
-                <span className="font-display text-3xl font-black text-primary-600 dark:text-primary-400">₹{food.discountedPrice?.toFixed(0)}</span>
-                <span className="text-slate-400 line-through ml-2 text-lg">₹{food.originalPrice}</span>
+                <span className="font-display text-3xl font-black text-primary-600 dark:text-primary-400">₹{(food.discountedPrice * quantity).toFixed(0)}</span>
+                <span className="text-slate-400 line-through ml-2 text-lg">₹{(food.originalPrice * quantity).toFixed(0)}</span>
               </div>
               <div className="badge bg-gradient-to-r from-primary-500 to-primary-600 text-white text-sm font-bold">
-                Save ₹{savings.toFixed(0)}
+                Save ₹{(savings * quantity).toFixed(0)}
               </div>
             </div>
             <div className="flex flex-wrap gap-3 mt-3 text-sm text-slate-500 dark:text-slate-400">
@@ -162,7 +212,7 @@ export default function FoodDetailPage() {
               </div>
               {food.expiryTime && (
                 <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" /> Expires {format(new Date(food.expiryTime), 'MMM d, h:mm a')}
+                  <Clock className="w-4 h-4" /> Expires in <CountdownTimer expiryTime={food.expiryTime} />
                 </div>
               )}
             </div>
@@ -186,24 +236,25 @@ export default function FoodDetailPage() {
           )}
 
           {/* Quantity & Cart */}
-          {isAvailable && (
-            <div className="flex gap-3">
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-dark-700 rounded-xl p-1.5">
-                <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="w-9 h-9 rounded-lg bg-white dark:bg-dark-600 flex items-center justify-center shadow-sm font-bold text-lg hover:bg-primary-50 transition-colors">-</button>
-                <span className="w-8 text-center font-bold text-slate-900 dark:text-white">{quantity}</span>
-                <button onClick={() => setQuantity((q) => Math.min(food.availableQuantity, q + 1))} className="w-9 h-9 rounded-lg bg-white dark:bg-dark-600 flex items-center justify-center shadow-sm font-bold text-lg hover:bg-primary-50 transition-colors">+</button>
-              </div>
-              <button onClick={handleAddToCart} className="btn-primary btn-lg flex-1">
-                <ShoppingCart className="w-5 h-5" /> Add to Cart · ₹{(food.discountedPrice * quantity).toFixed(0)}
+          <div className="flex gap-3">
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-dark-700 rounded-xl p-1.5">
+              <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="w-9 h-9 rounded-lg bg-white dark:bg-dark-600 flex items-center justify-center shadow-sm font-bold text-lg hover:bg-primary-50 transition-colors">-</button>
+              <span className="w-8 text-center font-bold text-slate-900 dark:text-white">{quantity}</span>
+              <button onClick={() => setQuantity((q) => Math.min(food.availableQuantity, q + 1))} className="w-9 h-9 rounded-lg bg-white dark:bg-dark-600 flex items-center justify-center shadow-sm font-bold text-lg hover:bg-primary-50 transition-colors">+</button>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-4 flex-1">
+              <button 
+                onClick={handleAddToCart} 
+                disabled={!isAvailable || isShopClosed}
+                className="btn-primary btn-lg flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ShoppingCart className="w-5 h-5" /> 
+                {isShopClosed ? 'Shop Closed' : isAvailable ? `Add to Cart · ₹${(food.discountedPrice * quantity).toFixed(0)}` : food.status.replace('_', ' ')}
               </button>
             </div>
-          )}
-          {!isAvailable && (
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-dark-800 text-center text-slate-500 dark:text-slate-400">
-              <Info className="w-5 h-5 mx-auto mb-1" />
-              This item is currently {food.status?.replace('_', ' ')}
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

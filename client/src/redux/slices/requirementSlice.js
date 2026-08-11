@@ -8,6 +8,7 @@ export const requirementService = {
   acceptSponsorship: (reqId, sponsId) => api.put(`/requirements/${reqId}/sponsorships/${sponsId}/accept`),
   rejectSponsorship: (reqId, sponsId, data) => api.put(`/requirements/${reqId}/sponsorships/${sponsId}/reject`, data),
   cancelRequirement: (id) => api.delete(`/requirements/${id}`),
+  updateRequirement: (id, data) => api.put(`/requirements/${id}`, data),
   getRequirement: (id) => api.get(`/requirements/${id}`),
   // Merchant
   getNearbyRequirements: (params) => api.get('/requirements/nearby', { params }),
@@ -48,6 +49,18 @@ export const createRequirementThunk = createAsyncThunk(
       return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to create');
+    }
+  }
+);
+
+export const updateRequirementThunk = createAsyncThunk(
+  'requirements/update',
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const res = await requirementService.updateRequirement(id, data);
+      return res.data.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Failed to update requirement');
     }
   }
 );
@@ -147,10 +160,19 @@ const requirementSlice = createSlice({
       .addCase(createRequirementThunk.pending, pending)
       .addCase(createRequirementThunk.fulfilled, (state, action) => {
         state.loading = false;
+        state.successMsg = 'Requirement created successfully';
         state.myRequirements.unshift(action.payload);
-        state.successMsg = 'Food requirement created & merchants notified!';
       })
       .addCase(createRequirementThunk.rejected, rejected)
+
+      .addCase(updateRequirementThunk.pending, pending)
+      .addCase(updateRequirementThunk.fulfilled, (state, action) => {
+        state.loading = false;
+        state.successMsg = 'Requirement updated successfully';
+        const index = state.myRequirements.findIndex((r) => r._id === action.payload._id);
+        if (index !== -1) state.myRequirements[index] = action.payload;
+      })
+      .addCase(updateRequirementThunk.rejected, rejected)
 
       .addCase(submitSponsorshipThunk.pending, pending)
       .addCase(submitSponsorshipThunk.fulfilled, (state, action) => {

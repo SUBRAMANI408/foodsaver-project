@@ -17,7 +17,7 @@ import {
 } from '../../redux/slices/requirementSlice';
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Any Food'];
-const FOOD_CATEGORIES = ['Vegetarian', 'Non-Vegetarian', 'Vegan', 'Any Suitable Food'];
+const FOOD_CATEGORIES = ['Vegetarian', 'Non-Vegetarian', 'Vegan', 'Any Suitable Food', 'Both (Veg & Non-Veg)'];
 
 const REJECTION_REASONS = [
   'Quantity is not suitable',
@@ -182,7 +182,7 @@ function SponsorshipCard({ sp, reqId, onAccept, onRejectClick, onOpenChat, loadi
 }
 
 // ─── Requirement Card ─────────────────────────────────────────────────────────
-function RequirementCard({ req, onAccept, onRejectClick, onOpenChat, loading }) {
+function RequirementCard({ req, onAccept, onRejectClick, onOpenChat, onEdit, loading }) {
   const [expanded, setExpanded] = useState(false);
   const meta = STATUS_META[req.status] || STATUS_META.open;
   const Icon = meta.icon;
@@ -201,6 +201,11 @@ function RequirementCard({ req, onAccept, onRejectClick, onOpenChat, loading }) 
             <div className="flex items-center gap-4 mt-2 flex-wrap text-sm text-slate-500">
               <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{req.peopleCount} people</span>
               <span className="flex items-center gap-1"><Utensils className="w-3.5 h-3.5" />{req.quantityRequired} meals</span>
+              {req.foodCategory === 'Both (Veg & Non-Veg)' && (
+                <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-slate-100 dark:bg-dark-800 rounded">
+                  <span className="text-primary-600 font-semibold">{req.vegQuantity} Veg</span> + <span className="text-red-500 font-semibold">{req.nonVegQuantity} Non-Veg</span>
+                </span>
+              )}
               <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{req.requiredTime} – {req.availableUntil}</span>
               <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />
                 {new Date(req.requiredDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -233,19 +238,45 @@ function RequirementCard({ req, onAccept, onRejectClick, onOpenChat, loading }) 
           </motion.div>
         )}
       </AnimatePresence>
+      {(req.status === 'open' || req.status === 'pending') && (
+        <div className="p-4 border-t border-slate-100 dark:border-dark-700 bg-slate-50 dark:bg-dark-800">
+          <button 
+            onClick={() => onEdit(req)}
+            className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-dark-900 border border-slate-200 dark:border-dark-700 rounded-xl hover:bg-slate-50 dark:hover:bg-dark-800 transition-colors"
+          >
+            Edit Requirement
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 }
 
-// ─── Create Requirement Modal ─────────────────────────────────────────────────
-// (Keep the EXACT same CreateModal component from the current file - copy it exactly as-is)
-function CreateModal({ onClose, onSubmit, loading }) {
+// ─── Create/Edit Requirement Modal ──────────────────────────────────────────
+function CreateModal({ onClose, onSubmit, loading, initialData }) {
   const { user } = useSelector((s) => s.auth);
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const dateStr = tomorrow.toISOString().split('T')[0];
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(initialData ? {
+    contactName: initialData.contactName || '',
+    contactPhone: initialData.contactPhone || '',
+    contactEmail: initialData.contactEmail || '',
+    addressText: initialData.addressText || '',
+    coordinates: initialData.coordinates || '',
+    peopleCount: initialData.peopleCount || '',
+    quantityRequired: initialData.quantityRequired || '',
+    vegQuantity: initialData.vegQuantity || '',
+    nonVegQuantity: initialData.nonVegQuantity || '',
+    mealType: initialData.mealType || 'Lunch',
+    foodCategory: initialData.foodCategory || 'Any Suitable Food',
+    specificFood: initialData.specificFood || '',
+    requiredDate: initialData.requiredDate ? new Date(initialData.requiredDate).toISOString().split('T')[0] : dateStr,
+    requiredTime: initialData.requiredTime || '12:30 PM',
+    availableUntil: initialData.availableUntil || '02:00 PM',
+    additionalRequirements: initialData.additionalRequirements || '',
+  } : {
     contactName: user?.name || '',
     contactPhone: user?.phone || '',
     contactEmail: user?.email || '',
@@ -253,6 +284,8 @@ function CreateModal({ onClose, onSubmit, loading }) {
     coordinates: '',
     peopleCount: '',
     quantityRequired: '',
+    vegQuantity: '',
+    nonVegQuantity: '',
     mealType: 'Lunch',
     foodCategory: 'Any Suitable Food',
     specificFood: '',
@@ -266,16 +299,31 @@ function CreateModal({ onClose, onSubmit, loading }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.peopleCount || !form.quantityRequired || !form.requiredDate) {
+    let totalRequired = form.quantityRequired;
+    if (form.foodCategory === 'Both (Veg & Non-Veg)') {
+      if (!form.vegQuantity || !form.nonVegQuantity) {
+        toast.error('Please specify both Veg and Non-Veg quantities');
+        return;
+      }
+      totalRequired = Number(form.vegQuantity) + Number(form.nonVegQuantity);
+    }
+
+    if (!form.peopleCount || !totalRequired || !form.requiredDate) {
       toast.error('Please fill all required fields');
       return;
     }
     const to12 = (t) => {
+      if (t.includes('AM') || t.includes('PM')) return t; // already 12hr format
       const [h, m] = t.split(':').map(Number);
       const suffix = h >= 12 ? 'PM' : 'AM';
       return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${suffix}`;
     };
-    onSubmit({ ...form, requiredTime: to12(form.requiredTime), availableUntil: to12(form.availableUntil) });
+    onSubmit({ 
+      ...form, 
+      quantityRequired: totalRequired,
+      requiredTime: to12(form.requiredTime), 
+      availableUntil: to12(form.availableUntil) 
+    }, initialData?._id);
   };
 
   return (
@@ -288,7 +336,7 @@ function CreateModal({ onClose, onSubmit, loading }) {
               <Heart className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Create Food Requirement</h2>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">{initialData ? 'Edit Food Requirement' : 'Create Food Requirement'}</h2>
               <p className="text-xs text-slate-400">Nearby merchants will be notified instantly</p>
             </div>
           </div>
@@ -326,11 +374,26 @@ function CreateModal({ onClose, onSubmit, loading }) {
                 <input type="number" min="1" value={form.peopleCount} onChange={(e) => set('peopleCount', e.target.value)} required
                   className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="e.g. 100" />
               </div>
-              <div>
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Meals Required *</label>
-                <input type="number" min="1" value={form.quantityRequired} onChange={(e) => set('quantityRequired', e.target.value)} required
-                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="e.g. 100" />
-              </div>
+              {form.foodCategory === 'Both (Veg & Non-Veg)' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Veg Meals *</label>
+                    <input type="number" min="1" value={form.vegQuantity} onChange={(e) => set('vegQuantity', e.target.value)} required
+                      className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Veg" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Non-Veg Meals *</label>
+                    <input type="number" min="1" value={form.nonVegQuantity} onChange={(e) => set('nonVegQuantity', e.target.value)} required
+                      className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Non-Veg" />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Meals Required *</label>
+                  <input type="number" min="1" value={form.quantityRequired} onChange={(e) => set('quantityRequired', e.target.value)} required
+                    className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="e.g. 100" />
+                </div>
+              )}
             </div>
           </div>
           <div>
@@ -372,12 +435,12 @@ function CreateModal({ onClose, onSubmit, loading }) {
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Required By *</label>
-                <input type="time" value={form.requiredTime} onChange={(e) => set('requiredTime', e.target.value)} required
+                <input type="time" value={form.requiredTime.includes('M') ? '' : form.requiredTime} onChange={(e) => set('requiredTime', e.target.value)} required
                   className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500" />
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Available Until *</label>
-                <input type="time" value={form.availableUntil} onChange={(e) => set('availableUntil', e.target.value)} required
+                <input type="time" value={form.availableUntil.includes('M') ? '' : form.availableUntil} onChange={(e) => set('availableUntil', e.target.value)} required
                   className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500" />
               </div>
             </div>
@@ -395,7 +458,7 @@ function CreateModal({ onClose, onSubmit, loading }) {
           <button onClick={handleSubmit} disabled={loading}
             className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-primary-600 to-emerald-600 rounded-xl hover:from-primary-700 hover:to-emerald-700 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Heart className="w-4 h-4" />}
-            {loading ? 'Notifying Merchants...' : 'Post Requirement'}
+            {loading ? 'Saving...' : initialData ? 'Update Requirement' : 'Post Requirement'}
           </button>
         </div>
       </motion.div>
@@ -410,6 +473,7 @@ export default function HelpingCenterRequirements() {
   const { myRequirements, loading, error, successMsg } = useSelector((s) => s.requirements);
   const { user, role } = useSelector((s) => s.auth);
   const [showModal, setShowModal] = useState(false);
+  const [editData, setEditData] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [rejectTarget, setRejectTarget] = useState(null); // { reqId, sponsId }
 
@@ -417,10 +481,19 @@ export default function HelpingCenterRequirements() {
 
   useEffect(() => {
     if (error) { toast.error(error); dispatch(clearMsg()); }
-    if (successMsg) { toast.success(successMsg); dispatch(clearMsg()); setShowModal(false); setRejectTarget(null); }
+    if (successMsg) { toast.success(successMsg); dispatch(clearMsg()); setShowModal(false); setEditData(null); setRejectTarget(null); }
   }, [error, successMsg, dispatch]);
 
-  const handleCreate = (formData) => dispatch(createRequirementThunk(formData));
+  const handleCreateOrUpdate = (formData, id) => {
+    if (id) {
+      import('../../redux/slices/requirementSlice').then(({ updateRequirementThunk }) => {
+        dispatch(updateRequirementThunk({ id, data: formData }));
+      });
+    } else {
+      dispatch(createRequirementThunk(formData));
+    }
+  };
+  const handleEdit = (req) => { setEditData(req); setShowModal(true); };
   const handleAccept = (reqId, sponsId) => dispatch(acceptSponsorshipThunk({ reqId, sponsId }));
   const handleRejectClick = (reqId, sponsId) => setRejectTarget({ reqId, sponsId });
   const handleReject = (reason) => {
@@ -493,13 +566,13 @@ export default function HelpingCenterRequirements() {
       ) : (
         <div className="space-y-4">
           {filtered.map((req) => (
-            <RequirementCard key={req._id} req={req} onAccept={handleAccept} onRejectClick={handleRejectClick} onOpenChat={handleOpenChat} loading={loading} />
+            <RequirementCard key={req._id} req={req} onAccept={handleAccept} onRejectClick={handleRejectClick} onOpenChat={handleOpenChat} onEdit={handleEdit} loading={loading} />
           ))}
         </div>
       )}
 
       <AnimatePresence>
-        {showModal && <CreateModal onClose={() => setShowModal(false)} onSubmit={handleCreate} loading={loading} />}
+        {showModal && <CreateModal onClose={() => { setShowModal(false); setEditData(null); }} onSubmit={handleCreateOrUpdate} loading={loading} initialData={editData} />}
       </AnimatePresence>
 
       <AnimatePresence>

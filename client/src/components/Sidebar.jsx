@@ -1,11 +1,11 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import {
   Leaf, LayoutDashboard, Search, ShoppingBag, Bell, Star,
   Settings, LogOut, ChevronLeft, ChevronRight, Home, Package,
   TrendingUp, Gift, Truck, Users, Shield, Heart, BarChart3,
-  Store, CreditCard, MessageSquare, MapPin, Inbox, Box
+  Store, CreditCard, MessageSquare, MapPin, Inbox, Box, ShoppingCart
 } from 'lucide-react';
 import { toggleSidebar } from '../redux/slices/uiSlice';
 import { logout } from '../redux/slices/authSlice';
@@ -14,11 +14,10 @@ const menuByRole = {
   user: [
     { icon: Home, label: 'Home', to: '/dashboard' },
     { icon: Search, label: 'Find Food', to: '/food' },
+    { icon: ShoppingCart, label: 'Cart', to: '/cart' },
+    { icon: Heart, label: 'Wishlist', to: '/wishlist' },
     { icon: ShoppingBag, label: 'My Orders', to: '/dashboard/orders' },
-    { icon: CreditCard, label: 'Payments', to: '/dashboard/payments' },
     { icon: Bell, label: 'Notifications', to: '/notifications' },
-    { icon: Star, label: 'Reviews', to: '/dashboard/reviews' },
-    { icon: TrendingUp, label: 'Analytics', to: '/dashboard/stats' },
     { icon: Settings, label: 'Settings', to: '/settings' },
   ],
   merchant: [
@@ -27,6 +26,7 @@ const menuByRole = {
     { icon: Inbox, label: 'Food Requests', to: '/merchant/requests' },
     { icon: Users, label: 'Directory', to: '/merchant/directory' },
     { icon: MessageSquare, label: 'Chats', to: '/merchant/chat', badge: 'chat' },
+    { icon: Users, label: 'Community Chat', to: '/merchant/community-chat' },
     { icon: Box, label: 'My Food', to: '/merchant/food' },
     { icon: ShoppingBag, label: 'Orders', to: '/merchant/orders' },
     { icon: Gift, label: 'NGO Sponsorships', to: '/merchant/donations' },
@@ -36,20 +36,11 @@ const menuByRole = {
     { icon: Bell, label: 'Notifications', to: '/notifications' },
     { icon: Settings, label: 'Settings', to: '/settings' },
   ],
-  delivery_partner: [
-    { icon: LayoutDashboard, label: 'Dashboard', to: '/delivery' },
-    { icon: Truck, label: 'Active Deliveries', to: '/delivery/active' },
-    { icon: MapPin, label: 'Route Tracking', to: '/delivery/map' },
-    { icon: ShoppingBag, label: 'History', to: '/delivery/history' },
-    { icon: CreditCard, label: 'Earnings', to: '/delivery/earnings' },
-    { icon: Bell, label: 'Notifications', to: '/notifications' },
-    { icon: Settings, label: 'Settings', to: '/settings' },
-  ],
+
   helping_center: [
     { icon: LayoutDashboard, label: 'Dashboard', to: '/helping-center' },
     { icon: Heart, label: 'Food Requirements', to: '/helping-center/donations' },
     { icon: MessageSquare, label: 'Chat', to: '/helping-center/chat', badge: 'chat' },
-    { icon: Package, label: 'Inventory', to: '/helping-center/inventory' },
     { icon: BarChart3, label: 'Reports', to: '/helping-center/reports' },
     { icon: Bell, label: 'Notifications', to: '/notifications' },
     { icon: Settings, label: 'Settings', to: '/settings' },
@@ -58,8 +49,6 @@ const menuByRole = {
     { icon: LayoutDashboard, label: 'Dashboard', to: '/admin' },
     { icon: Users, label: 'Users', to: '/admin/users' },
     { icon: Store, label: 'Merchants', to: '/admin/merchants' },
-    { icon: Truck, label: 'Delivery', to: '/admin/delivery' },
-    { icon: Heart, label: 'Helping Centers', to: '/admin/centers' },
     { icon: CreditCard, label: 'Payments', to: '/admin/payments' },
     { icon: Shield, label: 'Fraud Detection', to: '/admin/fraud' },
     { icon: BarChart3, label: 'Analytics', to: '/admin/analytics' },
@@ -147,23 +136,18 @@ export default function Sidebar() {
       <div className="border-t border-slate-100 dark:border-dark-700 p-3 space-y-2">
         {sidebarOpen && user && (
           <div className="flex items-center gap-3 px-2 py-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
+            <Link to="/settings" className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden hover:opacity-80 transition-opacity">
               {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : (user.name || user.businessName || '?').charAt(0)}
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{user.name || user.businessName}</div>
-              <div className="text-xs text-slate-400 truncate">{user.email}</div>
-            </div>
+            </Link>
+            <Link to="/settings" className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
+              <p className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate">{user.name || user.businessName || user.centerName}</p>
+              <p className="text-xs text-slate-400 truncate">{user.email}</p>
+            </Link>
+            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg">
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         )}
-
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-sm font-medium"
-        >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
-          {sidebarOpen && <span>Logout</span>}
-        </button>
 
         <button
           onClick={() => dispatch(toggleSidebar())}

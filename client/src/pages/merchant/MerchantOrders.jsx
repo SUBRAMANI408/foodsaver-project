@@ -10,7 +10,7 @@ const STATUS_ACTIONS = {
   pending: [{ label: 'Accept', next: 'confirmed', color: 'btn-primary' }, { label: 'Reject', next: 'cancelled', color: 'btn-danger' }],
   confirmed: [{ label: 'Mark Preparing', next: 'preparing', color: 'btn-primary' }],
   preparing: [{ label: 'Ready for Pickup', next: 'ready_for_pickup', color: 'btn-primary' }],
-  ready_for_pickup: [{ label: 'Mark Delivered', next: 'delivered', color: 'btn-primary' }],
+  ready_for_pickup: [{ label: 'Mark Picked Up', next: 'delivered', color: 'btn-primary' }],
 };
 
 export default function MerchantOrders() {
@@ -49,7 +49,7 @@ export default function MerchantOrders() {
           { key: 'confirmed', label: 'Confirmed' },
           { key: 'preparing', label: 'Preparing' },
           { key: 'ready_for_pickup', label: 'Ready' },
-          { key: 'delivered', label: '✅ Delivered' },
+          { key: 'delivered', label: '✅ Picked Up' },
           { key: 'cancelled', label: '❌ Cancelled' },
         ].map(({ key, label }) => (
           <button
@@ -84,7 +84,7 @@ export default function MerchantOrders() {
                       order.status === 'pending' ? 'badge-orange' :
                       order.status === 'delivered' ? 'badge-green' :
                       order.status === 'cancelled' ? 'badge-red' : 'badge-blue'
-                    }`}>{order.status?.replace('_', ' ')}</span>
+                    }`}>{order.status === 'delivered' ? 'Picked Up' : order.status?.replace('_', ' ')}</span>
                     <span className={`badge text-xs ${order.paymentStatus === 'paid' ? 'badge-green' : 'badge-orange'}`}>
                       {order.paymentStatus}
                     </span>

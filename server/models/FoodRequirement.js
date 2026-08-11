@@ -22,9 +22,11 @@ const foodRequirementSchema = new mongoose.Schema({
   },
   foodCategory: {
     type: String,
-    enum: ['Vegetarian', 'Non-Vegetarian', 'Vegan', 'Any Suitable Food'],
+    enum: ['Vegetarian', 'Non-Vegetarian', 'Vegan', 'Any Suitable Food', 'Both (Veg & Non-Veg)'],
     default: 'Any Suitable Food',
   },
+  vegQuantity: { type: Number, default: 0 },
+  nonVegQuantity: { type: Number, default: 0 },
   specificFood: { type: String, default: '' }, // Optional: e.g. "Idli, Sambar"
   requiredDate: { type: Date, required: true },
   requiredTime: { type: String, required: true }, // e.g. "12:30 PM"

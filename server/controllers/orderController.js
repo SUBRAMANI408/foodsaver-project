@@ -3,6 +3,7 @@ import FoodItem from '../models/FoodItem.js';
 import User from '../models/User.js';
 import Merchant from '../models/Merchant.js';
 import Notification from '../models/Notification.js';
+import { sendOrderConfirmationEmail } from '../utils/emailService.js';
 
 // @desc    Create order
 // @route   POST /api/orders
@@ -44,8 +45,7 @@ export const createOrder = async (req, res, next) => {
       });
     }
 
-    const deliveryFee = deliveryType === 'delivery' ? 30 : 0;
-    const totalAmount = subtotal + deliveryFee;
+    const totalAmount = subtotal;
     const discountAmount = orderItems.reduce((acc, i) => acc + (i.originalPrice - i.discountedPrice) * i.quantity, 0);
 
     const merchant = await Merchant.findById(merchantId);
@@ -57,11 +57,10 @@ export const createOrder = async (req, res, next) => {
       paymentMethod,
       deliveryType,
       deliveryAddress,
-      merchantAddress: { address: merchant.address, coordinates: merchant.location.coordinates },
       subtotal,
       discountAmount,
-      deliveryFee,
       totalAmount,
+      expiresAt: new Date(Date.now() + 240 * 60 * 1000), // 4 hours from now
       specialInstructions,
       statusHistory: [{ status: 'pending', note: 'Order placed' }],
     });
@@ -77,6 +76,12 @@ export const createOrder = async (req, res, next) => {
     });
 
     req.io?.to(`merchant:${merchantId}`).emit('order:new', order);
+
+    // Send confirmation email asynchronously
+    const user = await User.findById(req.userId).select('email name');
+    if (user && user.email) {
+      sendOrderConfirmationEmail(user.email, user.name, order).catch(err => console.error(err));
+    }
 
     res.status(201).json({ success: true, message: 'Order placed successfully', data: order });
   } catch (error) {
@@ -184,21 +189,46 @@ export const cancelOrder = async (req, res, next) => {
     const { reason } = req.body;
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+    
+    // Check authorization: User can only cancel their own order. Merchant can cancel orders for their shop.
+    const isOwner = order.user.toString() === req.userId;
+    const isMerchant = order.merchant.toString() === req.userId;
+    const isAdmin = req.userRole === 'admin';
+    if (!isOwner && !isMerchant && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized to cancel this order' });
+    }
+
     if (['delivered', 'cancelled'].includes(order.status)) {
       return res.status(400).json({ success: false, message: 'Cannot cancel this order' });
+    }
+    // Users can only cancel before it's ready for pickup or delivered
+    if (isOwner && !isMerchant && !isAdmin && ['ready_for_pickup', 'preparing'].includes(order.status)) {
+       return res.status(400).json({ success: false, message: 'Order is already being prepared or ready. Cannot cancel.' });
     }
 
     // Restore food quantities
     for (const item of order.items) {
-      await FoodItem.findByIdAndUpdate(item.foodItem, { $inc: { availableQuantity: item.quantity } });
+      await FoodItem.findByIdAndUpdate(item.foodItem, { 
+        $inc: { availableQuantity: item.quantity },
+        status: 'available' 
+      });
     }
 
     order.status = 'cancelled';
-    order.cancellationReason = reason;
-    order.statusHistory.push({ status: 'cancelled', note: reason });
+    order.cancellationReason = reason || 'Cancelled by user';
+    order.statusHistory.push({ status: 'cancelled', note: reason || 'Cancelled by user', timestamp: new Date() });
     await order.save();
 
-    res.json({ success: true, message: 'Order cancelled', data: order });
+    // Notifications
+    if (isOwner) {
+       await Notification.create({ recipient: order.merchant, recipientModel: 'Merchant', title: 'Order Cancelled 🚫', message: `Order #${order.orderNumber} was cancelled by the customer.`, type: 'order', data: { orderId: order._id } });
+       req.io?.to(`merchant:${order.merchant}`).emit('order:updated', { orderId: order._id, status: 'cancelled' });
+    } else {
+       await Notification.create({ recipient: order.user, recipientModel: 'User', title: 'Order Cancelled 🚫', message: `Your order #${order.orderNumber} was cancelled.`, type: 'order', data: { orderId: order._id } });
+       req.io?.to(`user:${order.user}`).emit('order:updated', { orderId: order._id, status: 'cancelled' });
+    }
+
+    res.json({ success: true, message: 'Order cancelled successfully', data: order });
   } catch (error) {
     next(error);
   }

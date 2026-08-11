@@ -8,7 +8,6 @@ export const getNotifications = async (req, res, next) => {
     const roleModelMap = {
       user: 'User',
       merchant: 'Merchant',
-      delivery_partner: 'DeliveryPartner',
       helping_center: 'HelpingCenter',
       admin: 'Admin',
     };

@@ -596,6 +596,31 @@ export const getRequirement = async (req, res, next) => {
   }
 };
 
+// ─── NGO: Update a requirement ──────────────────────────────────────────
+// PUT /api/requirements/:id
+export const updateRequirement = async (req, res, next) => {
+  try {
+    const requirement = await FoodRequirement.findOne({ _id: req.params.id, ngo: req.userId });
+    if (!requirement) return res.status(404).json({ success: false, message: 'Not found' });
+    if (requirement.status !== 'open' && requirement.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Cannot edit requirement once accepted or partially fulfilled' });
+    }
+
+    const updates = req.body;
+    // Disallow updating fields that shouldn't be manually changed
+    delete updates.status;
+    delete updates.sponsorships;
+    delete updates.quantityFulfilled;
+
+    Object.assign(requirement, updates);
+    await requirement.save();
+
+    res.json({ success: true, message: 'Requirement updated successfully', data: requirement });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── NGO: Cancel a requirement ────────────────────────────────────────────────
 // DELETE /api/requirements/:id
 export const cancelRequirement = async (req, res, next) => {

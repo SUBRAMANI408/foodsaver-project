@@ -2,10 +2,10 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.js';
 import Merchant from '../models/Merchant.js';
-import DeliveryPartner from '../models/DeliveryPartner.js';
 import HelpingCenter from '../models/HelpingCenter.js';
 import { sendWelcomeEmail, sendLoginAlertEmail } from '../utils/emailService.js';
 import { OAuth2Client } from 'google-auth-library';
+import { uploadToCloudinary } from '../middleware/upload.js';
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'dummy');
 
@@ -19,7 +19,6 @@ const getModelByRole = (role) => {
   const models = {
     user: User,
     merchant: Merchant,
-    delivery_partner: DeliveryPartner,
     helping_center: HelpingCenter,
     admin: User,
   };
@@ -73,17 +72,28 @@ export const login = async (req, res, next) => {
     if (!Model) return res.status(400).json({ success: false, message: 'Invalid role' });
 
     const entity = await Model.findOne({ email });
-    if (!entity) return res.status(401).json({ success: false, message: 'Invalid email or password' });
-
-    // Ensure the requested login role matches the entity's actual role (prevents admin logging in as user and vice versa)
-    if (entity.role && entity.role !== role) {
+    if (!entity) {
+      console.log('Login failed: entity not found for email', email);
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    if (!entity.isActive) return res.status(401).json({ success: false, message: 'Account is deactivated' });
+    // Ensure the requested login role matches the entity's actual role (prevents admin logging in as user and vice versa)
+    if (entity.role && entity.role !== role) {
+      console.log(`Login failed: role mismatch. Expected ${role}, got ${entity.role}`);
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    if (!entity.isActive) {
+      console.log('Login failed: account is deactivated');
+      return res.status(401).json({ success: false, message: 'Account is deactivated' });
+    }
 
     const isMatch = await entity.comparePassword(password);
-    if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    console.log(`Password match result for ${email}: ${isMatch}`);
+    if (!isMatch) {
+      console.log('Login failed: password mismatch');
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
 
     const { accessToken, refreshToken } = generateTokens(entity._id, role);
     entity.refreshToken = refreshToken;
@@ -147,9 +157,6 @@ export const googleAuth = async (req, res, next) => {
         baseData.centerName = name;
         baseData.centerType = 'ngo';
         baseData.contactPhone = '0000000000';
-      } else if (role === 'delivery_partner') {
-        baseData.vehicleType = 'bike';
-        baseData.vehicleNumber = 'NA';
       } else if (role === 'user') {
         baseData.role = 'user';
       }
@@ -261,6 +268,11 @@ export const getMe = async (req, res, next) => {
 export const updateProfile = async (req, res, next) => {
   try {
     const { password, email, role, ...updateData } = req.body;
+    
+    if (req.file) {
+      updateData.avatar = await uploadToCloudinary(req.file.path, 'users');
+    }
+
     const updated = await req.user.constructor.findByIdAndUpdate(
       req.userId,
       { $set: updateData },

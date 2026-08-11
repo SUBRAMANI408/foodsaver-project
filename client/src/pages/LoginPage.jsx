@@ -19,7 +19,6 @@ const loginSchema = z.object({
 const ROLES = [
   { value: 'user', label: 'Customer', icon: User, color: 'from-primary-500 to-primary-600', desc: 'Buy discounted food' },
   { value: 'merchant', label: 'Merchant', icon: Store, color: 'from-accent-500 to-orange-500', desc: 'Sell leftover food' },
-  { value: 'delivery_partner', label: 'Delivery', icon: Truck, color: 'from-blue-500 to-blue-600', desc: 'Deliver orders' },
   { value: 'helping_center', label: 'NGO / Center', icon: Heart, color: 'from-pink-500 to-rose-500', desc: 'Accept donations' },
   { value: 'admin', label: 'Admin', icon: Leaf, color: 'from-purple-500 to-purple-600', desc: 'Manage platform' },
 ];
@@ -39,7 +38,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && role) {
-      const paths = { admin: '/admin', merchant: '/merchant', delivery_partner: '/delivery', helping_center: '/helping-center', user: '/dashboard' };
+      const paths = { admin: '/admin', merchant: '/merchant', helping_center: '/helping-center', user: '/dashboard' };
       navigate(paths[role] || '/dashboard');
     }
   }, [isAuthenticated, role, navigate]);
@@ -51,7 +50,6 @@ export default function LoginPage() {
     const credentials = {
       user: { email: 'customer1@example.com', password: 'password123' },
       merchant: { email: 'merchant1@example.com', password: 'password123' },
-      delivery_partner: { email: 'delivery1@example.com', password: 'password123' },
       helping_center: { email: 'ngo1@example.com', password: 'password123' },
       admin: { email: 'admin@example.com', password: 'password123' },
     };

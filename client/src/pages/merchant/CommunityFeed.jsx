@@ -6,6 +6,7 @@ import { fetchCommunityPosts, sendFoodRequest } from '../../redux/slices/merchan
 import toast from 'react-hot-toast';
 import CreatePostModal from './CreatePostModal';
 import { useNavigate } from 'react-router-dom';
+import useDebounce from '../../hooks/useDebounce';
 
 const CommunityFeed = () => {
   const dispatch = useDispatch();
@@ -13,6 +14,7 @@ const CommunityFeed = () => {
   const { posts, loading, error } = useSelector(state => state.merchantCommunity);
   const { user } = useSelector(state => state.auth);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [activeTab, setActiveTab] = useState('all'); // all, excess_food, food_requirement, general, mine
   const [selectedPost, setSelectedPost] = useState(null);
   const [requestQuantity, setRequestQuantity] = useState(1);
@@ -23,8 +25,8 @@ const CommunityFeed = () => {
   }, [dispatch]);
 
   const filteredPosts = posts?.filter(post => {
-    const matchesSearch = post.foodDetails.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          post.merchant?.businessName?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = post.foodDetails.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+                          post.merchant?.businessName?.toLowerCase().includes(debouncedSearch.toLowerCase());
     
     if (!matchesSearch) return false;
     

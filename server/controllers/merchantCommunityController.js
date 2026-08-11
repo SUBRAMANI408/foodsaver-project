@@ -13,7 +13,7 @@ export const getPosts = async (req, res) => {
         { merchant: req.user._id },
         { scope: 'selected', targetMerchants: req.user._id }
       ]
-    }).populate('merchant', 'businessName name profileImage');
+    }).populate('merchant', 'businessName name profileImage').sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: posts });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -200,6 +200,9 @@ export const getDirectory = async (req, res) => {
     }
     
     const merchants = await Merchant.find(query).select('name businessName location images businessType rating');
+    if (nearby !== 'true') {
+      merchants.sort((a, b) => b.createdAt - a.createdAt);
+    }
     res.status(200).json({ success: true, data: merchants });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

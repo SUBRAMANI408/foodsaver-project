@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Send, Users, Search, Image as ImageIcon, MapPin, MoreVertical, Phone, Video, ArrowLeft } from 'lucide-react';
 import { connectSocket, getSocket, disconnectSocket } from '../../services/socket';
 import { fetchMerchantDirectory } from '../../redux/slices/merchantCommunitySlice';
+import useDebounce from '../../hooks/useDebounce';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -22,6 +23,15 @@ const MerchantChat = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [onlineUsers, setOnlineUsers] = useState({});
   const messagesEndRef = useRef(null);
+  const activeConvIdRef = useRef('merchant_community_global');
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
+
+  const filteredDirectory = merchantDirectory?.filter(m => 
+    m.businessName?.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+    m.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
+  ) || [];
 
   // Initialize Socket & Data
   useEffect(() => {
@@ -31,7 +41,10 @@ const MerchantChat = () => {
     if (socket) {
       socket.emit('chat:join', 'merchant_community_global');
       socket.on('chat:message', (msg) => {
-        setMessages(prev => [...prev, msg]);
+        setMessages(prev => {
+          if (activeConvIdRef.current && msg.conversationId !== activeConvIdRef.current) return prev;
+          return [...prev, msg];
+        });
         scrollToBottom();
       });
       socket.on('user:online', (userId) => setOnlineUsers(prev => ({...prev, [userId]: true})));
@@ -64,7 +77,8 @@ const MerchantChat = () => {
   // Load Messages from API
   const loadMessages = async (chatId) => {
     try {
-      const convId = chatId === 'global' ? 'merchant_community_global' : getPrivateConvId(user.merchantId, chatId);
+      const convId = chatId === 'global' ? 'merchant_community_global' : getPrivateConvId(user._id, chatId);
+      activeConvIdRef.current = convId;
       const res = await api.get(`/chat/messages/${convId}`);
       setMessages(res.data.data || []);
       scrollToBottom();
@@ -77,14 +91,14 @@ const MerchantChat = () => {
   };
 
   const getPrivateConvId = (id1, id2) => {
-    return [id1, id2].sort().join('_');
+    return 'merch_' + [id1, id2].sort().join('_');
   };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
 
-    const convId = activeChat === 'global' ? 'merchant_community_global' : getPrivateConvId(user.merchantId, activeChat._id);
+    const convId = activeChat === 'global' ? 'merchant_community_global' : getPrivateConvId(user._id, activeChat._id);
     const receiverId = activeChat === 'global' ? null : activeChat._id;
     const receiverModel = activeChat === 'global' ? null : 'Merchant';
 
@@ -123,7 +137,7 @@ const MerchantChat = () => {
   };
 
   return (
-    <div className="flex h-full bg-slate-100 overflow-hidden">
+    <div className="h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] -m-4 md:-m-6 lg:-m-8 bg-slate-100 flex overflow-hidden">
       {/* Sidebar - Chat List */}
       <div className={`w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 flex flex-col ${activeChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 bg-slate-50 border-b border-slate-200">
@@ -133,6 +147,8 @@ const MerchantChat = () => {
             <input 
               type="text" 
               placeholder="Search merchants..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
@@ -155,7 +171,7 @@ const MerchantChat = () => {
 
           {/* Individual Merchants */}
           <div className="p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">All Merchants</div>
-          {merchantDirectory.map(merchant => (
+          {filteredDirectory.map(merchant => (
             <div 
               key={merchant._id}
               onClick={() => selectChat(merchant)}
@@ -206,7 +222,7 @@ const MerchantChat = () => {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat' }}>
           {messages.map((msg, idx) => {
-            const isMe = msg.sender === user.merchantId;
+            const isMe = msg.sender === user._id;
             const senderInfo = merchantDirectory.find(m => m._id === msg.sender) || { businessName: 'Me' };
             return (
               <div key={msg._id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>

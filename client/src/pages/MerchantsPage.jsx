@@ -34,11 +34,10 @@ export default function MerchantsPage() {
           {merchants.map((m) => (
             <Link key={m._id} to={`/food?merchant=${m._id}`} className="card hover:shadow-card-hover transition-all duration-300 overflow-hidden group">
               <div className="h-32 bg-slate-100 dark:bg-dark-800 flex items-center justify-center">
-                {m.avatar ? (
-                  <img src={m.avatar} alt={m.businessName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                ) : (
-                  <Store className="w-12 h-12 text-slate-300 dark:text-slate-600" />
-                )}
+                {m.logo || m.images?.[0] ? (
+                  <img src={m.logo || m.images[0]} alt={m.businessName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} />
+                ) : null}
+                <Store className="w-12 h-12 text-slate-300 dark:text-slate-600" style={{ display: (m.logo || m.images?.[0]) ? 'none' : 'block' }} />
               </div>
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-1">

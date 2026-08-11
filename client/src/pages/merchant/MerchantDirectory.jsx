@@ -4,12 +4,14 @@ import { fetchMerchantDirectory } from '../../redux/slices/merchantCommunitySlic
 import { motion } from 'framer-motion';
 import { Search, MapPin, MessageSquare, UtensilsCrossed, Clock, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import useDebounce from '../../hooks/useDebounce';
 
 const MerchantDirectory = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { merchantDirectory, loading } = useSelector((state) => state.merchantCommunity);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [filterNearby, setFilterNearby] = useState(false);
 
   useEffect(() => {
@@ -17,8 +19,8 @@ const MerchantDirectory = () => {
   }, [dispatch, filterNearby]);
 
   const filteredMerchants = merchantDirectory?.filter((m) =>
-    m.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    m.businessName?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    m.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
   ) || [];
 
   return (

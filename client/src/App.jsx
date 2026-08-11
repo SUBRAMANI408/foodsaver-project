@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Toaster } from 'react-hot-toast';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { getMe, setInitialized } from './redux/slices/authSlice';
 
 // Layouts
@@ -103,10 +104,10 @@ export default function App() {
       // Set initialized to skip loading state
       dispatch(setInitialized());
     }
-  }, [dispatch]);
+  }, [dispatch, darkMode]); // removing undefined dependencies
 
   return (
-    <>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || '1234567890-dummy.apps.googleusercontent.com'}>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -210,6 +211,6 @@ export default function App() {
         {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </>
+    </GoogleOAuthProvider>
   );
 }

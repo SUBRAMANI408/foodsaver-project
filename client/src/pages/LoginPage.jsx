@@ -7,7 +7,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Leaf, Eye, EyeOff, Mail, Lock, User, Phone, Store, Truck, Heart, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { login } from '../redux/slices/authSlice';
+import { login, googleLogin } from '../redux/slices/authSlice';
+import { GoogleLogin } from '@react-oauth/google';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -48,11 +49,11 @@ export default function LoginPage() {
     setValue('role', r);
     
     const credentials = {
-      user: { email: 'customer@sports.com', password: 'customer123' },
-      merchant: { email: 'merchant@example.com', password: 'merchant123' },
-      delivery_partner: { email: 'delivery@example.com', password: 'delivery123' },
-      helping_center: { email: 'ngo@example.com', password: 'ngo123' },
-      admin: { email: 'admin@example.com', password: 'admin123' },
+      user: { email: 'customer1@example.com', password: 'password123' },
+      merchant: { email: 'merchant1@example.com', password: 'password123' },
+      delivery_partner: { email: 'delivery1@example.com', password: 'password123' },
+      helping_center: { email: 'ngo1@example.com', password: 'password123' },
+      admin: { email: 'admin@example.com', password: 'password123' },
     };
     
     if (credentials[r]) {
@@ -60,13 +61,21 @@ export default function LoginPage() {
       setValue('password', credentials[r].password);
     }
   };
-
   const onSubmit = async (data) => {
     const result = await dispatch(login({ ...data, role: selectedRole }));
     if (login.fulfilled.match(result)) {
       toast.success('Welcome back! 🎉');
     } else {
       toast.error(result.payload || 'Login failed');
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      await dispatch(googleLogin({ token: credentialResponse.credential, role: selectedRole })).unwrap();
+      toast.success('Logged in successfully!');
+    } catch (err) {
+      toast.error(err || 'Google login failed');
     }
   };
 
@@ -159,6 +168,28 @@ export default function LoginPage() {
                   <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 leading-tight text-center">{label}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Google Auth */}
+          <div className="mb-6 flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error('Google login failed')}
+              useOneTap
+              theme="outline"
+              shape="pill"
+              text="continue_with"
+              size="large"
+            />
+          </div>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-dark-800"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-slate-50 dark:bg-dark-950 text-slate-400">or sign in with email</span>
             </div>
           </div>
 

@@ -27,7 +27,7 @@ const connectDB = async () => {
     
     if (isMemory) {
       console.log('🌱 Seeding database...');
-      exec('node fix_seed.js', { 
+      exec('node scripts/generateProSeed.js', { 
         cwd: path.join(__dirname, '..'), 
         env: { ...process.env, MONGO_URI: uri } 
       }, (err, stdout, stderr) => {

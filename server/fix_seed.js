@@ -61,6 +61,27 @@ const fixSeed = async () => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    // Create Second Merchant (h1@gmail.com)
+    await Merchant.findOneAndUpdate(
+      { email: 'h1@gmail.com' },
+      { 
+        name: 'H1 Merchant',
+        businessName: 'H1 Test Restaurant',
+        ownerName: 'H1 Owner',
+        phone: '1234567899', 
+        password: await bcrypt.hash('123456789', 10), 
+        isVerified: true, 
+        isActive: true,
+        businessType: 'restaurant',
+        fssaiLicense: '99999999999999',
+        location: { type: 'Point', coordinates: [0, 0] },
+        address: '123 H1 Street',
+        openingTime: '09:00',
+        closingTime: '22:00'
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
     // Create Delivery Partner
     await DeliveryPartner.findOneAndUpdate(
       { email: 'delivery@example.com' },

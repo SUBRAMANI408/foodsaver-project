@@ -5,7 +5,7 @@ import {
   Leaf, LayoutDashboard, Search, ShoppingBag, Bell, Star,
   Settings, LogOut, ChevronLeft, ChevronRight, Home, Package,
   TrendingUp, Gift, Truck, Users, Shield, Heart, BarChart3,
-  Store, CreditCard, MessageSquare, MapPin, Inbox
+  Store, CreditCard, MessageSquare, MapPin, Inbox, Box
 } from 'lucide-react';
 import { toggleSidebar } from '../redux/slices/uiSlice';
 import { logout } from '../redux/slices/authSlice';

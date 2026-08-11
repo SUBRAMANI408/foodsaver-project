@@ -9,7 +9,8 @@ import {
   Leaf, Eye, EyeOff, Mail, Lock, User, Phone, Store, Truck, Heart, ChevronRight, Building, MapPin,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { register as registerUser } from '../redux/slices/authSlice';
+import { register as registerUser, googleLogin } from '../redux/slices/authSlice';
+import { GoogleLogin } from '@react-oauth/google';
 
 const baseSchema = {
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -78,7 +79,7 @@ export default function RegisterPage() {
     }
     if (selectedRole === 'helping_center') {
       submitData.centerName = submitData.businessName || submitData.name;
-      submitData.location = { type: 'Point', coordinates: [77.5946, 12.9716] };
+      submitData.centerType = submitData.businessType || 'ngo';
     }
 
     const result = await dispatch(registerUser(submitData));
@@ -88,6 +89,15 @@ export default function RegisterPage() {
       toast.success('Account created! Please verify your OTP.');
     } else {
       toast.error(result.payload || 'Registration failed');
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      await dispatch(googleLogin({ token: credentialResponse.credential, role: selectedRole })).unwrap();
+      toast.success('Registration/Login successful! 🎉');
+    } catch (err) {
+      toast.error(err || 'Google auth failed');
     }
   };
 
@@ -181,6 +191,28 @@ export default function RegisterPage() {
 
         {/* Form */}
         <div className="card p-6">
+          {/* Google Auth */}
+          <div className="mb-6 flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error('Google registration failed')}
+              useOneTap
+              theme="outline"
+              shape="pill"
+              text="signup_with"
+              size="large"
+            />
+          </div>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-dark-800"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white dark:bg-dark-900 text-slate-400">or register with email</span>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Common Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

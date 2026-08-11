@@ -14,6 +14,19 @@ export const login = createAsyncThunk('auth/login', async (data, { rejectWithVal
   }
 });
 
+export const googleLogin = createAsyncThunk('auth/googleLogin', async (data, { rejectWithValue }) => {
+  try {
+    const res = await authService.googleAuth(data);
+    const { data: user, accessToken, refreshToken, role } = res.data;
+    localStorage.setItem('savebite_token', accessToken);
+    localStorage.setItem('savebite_refresh_token', refreshToken);
+    localStorage.setItem('savebite_role', data.role || 'user');
+    return { user, role: data.role || 'user' };
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Google Login failed');
+  }
+});
+
 export const register = createAsyncThunk('auth/register', async (data, { rejectWithValue }) => {
   try {
     const res = await authService.register(data);
@@ -75,12 +88,25 @@ const authSlice = createSlice({
       .addCase(login.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
+        state.isAuthenticated = true;
         state.user = action.payload.user;
         state.role = action.payload.role;
-        state.isAuthenticated = true;
         state.initialized = true;
       })
       .addCase(login.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Google Login
+      .addCase(googleLogin.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(googleLogin.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.role = action.payload.role;
+        state.initialized = true;
+      })
+      .addCase(googleLogin.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

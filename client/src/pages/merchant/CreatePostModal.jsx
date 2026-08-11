@@ -3,13 +3,17 @@ import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search } from 'lucide-react';
 import { createCommunityPost, fetchMerchantDirectory } from '../../redux/slices/merchantCommunitySlice';
+import { fetchMerchantFood } from '../../redux/slices/foodSlice';
 import toast from 'react-hot-toast';
+import useDebounce from '../../hooks/useDebounce';
 
 const CreatePostModal = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
   const { merchantDirectory } = useSelector((state) => state.merchantCommunity);
+  const { merchantItems = [] } = useSelector((state) => state.food);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   
   const [formData, setFormData] = useState({
     postType: 'excess_food',
@@ -23,8 +27,9 @@ const CreatePostModal = ({ isOpen, onClose }) => {
   });
 
   useEffect(() => {
-    if (isOpen && merchantDirectory.length === 0) {
-      dispatch(fetchMerchantDirectory());
+    if (isOpen) {
+      if (merchantDirectory.length === 0) dispatch(fetchMerchantDirectory());
+      dispatch(fetchMerchantFood({}));
     }
   }, [isOpen, dispatch, merchantDirectory.length]);
 
@@ -32,10 +37,29 @@ const CreatePostModal = ({ isOpen, onClose }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'postType' && value === 'excess_food') {
+      setFormData(prev => ({ ...prev, postType: value, foodDetails: '' }));
+      return;
+    }
     setFormData(prev => ({
       ...prev,
       [name]: (name === 'foodDetails' || name === 'postType' || name === 'scope') ? value : Number(value)
     }));
+  };
+
+  const handleFoodSelect = (e) => {
+    const selectedName = e.target.value;
+    const foodItem = merchantItems.find(item => item.name === selectedName);
+    if (foodItem) {
+      setFormData(prev => ({
+        ...prev,
+        foodDetails: foodItem.name,
+        totalQuantity: foodItem.quantity || 1,
+        originalPrice: foodItem.price || 0
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, foodDetails: selectedName }));
+    }
   };
 
   const toggleMerchant = (merchantId) => {
@@ -91,7 +115,7 @@ const CreatePostModal = ({ isOpen, onClose }) => {
   };
 
   const filteredMerchants = merchantDirectory?.filter(m => 
-    m.businessName?.toLowerCase().includes(searchTerm.toLowerCase())
+    m.businessName?.toLowerCase().includes(debouncedSearch.toLowerCase())
   ) || [];
 
   return (
@@ -177,15 +201,32 @@ const CreatePostModal = ({ isOpen, onClose }) => {
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 {formData.postType === 'general' ? 'Post Content' : 'Food Details'}
               </label>
-              <textarea
-                name="foodDetails"
-                value={formData.foodDetails}
-                onChange={handleChange}
-                placeholder={formData.postType === 'general' ? "What's on your mind?" : "E.g., 20 kg of Biryani, 50 parottas..."}
-                required
-                rows={3}
-                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
-              />
+              {formData.postType === 'excess_food' ? (
+                <select
+                  name="foodDetails"
+                  value={formData.foodDetails}
+                  onChange={handleFoodSelect}
+                  required
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                >
+                  <option value="" disabled>Select from My Food...</option>
+                  {merchantItems.filter(i => ['available', 'expiring_soon'].includes(i.status)).map(item => (
+                    <option key={item._id} value={item.name}>
+                      {item.name} (Qty: {item.quantity})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <textarea
+                  name="foodDetails"
+                  value={formData.foodDetails}
+                  onChange={handleChange}
+                  placeholder={formData.postType === 'general' ? "What's on your mind?" : "E.g., 20 kg of Biryani, 50 parottas..."}
+                  required
+                  rows={3}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                />
+              )}
             </div>
 
             {formData.postType !== 'general' && (

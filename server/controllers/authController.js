@@ -4,6 +4,10 @@ import User from '../models/User.js';
 import Merchant from '../models/Merchant.js';
 import DeliveryPartner from '../models/DeliveryPartner.js';
 import HelpingCenter from '../models/HelpingCenter.js';
+import { sendWelcomeEmail, sendLoginAlertEmail } from '../utils/emailService.js';
+import { OAuth2Client } from 'google-auth-library';
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'dummy');
 
 const generateTokens = (id, role) => {
   const accessToken = jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '7d' });
@@ -42,6 +46,9 @@ export const register = async (req, res, next) => {
 
     entity.refreshToken = refreshToken;
     await entity.save();
+
+    // Send welcome email asynchronously
+    sendWelcomeEmail(entity.email, entity.name || entity.businessName, role).catch(err => console.error(err));
 
     res.status(201).json({
       success: true,
@@ -82,6 +89,9 @@ export const login = async (req, res, next) => {
     entity.refreshToken = refreshToken;
     await entity.save();
 
+    // Send login alert asynchronously
+    sendLoginAlertEmail(entity.email, entity.name || entity.businessName).catch(err => console.error(err));
+
     res.json({
       success: true,
       message: 'Login successful',
@@ -91,6 +101,88 @@ export const login = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+// @desc    Google OAuth Login/Register
+// @route   POST /api/auth/google
+export const googleAuth = async (req, res, next) => {
+  try {
+    const { token, role = 'user' } = req.body;
+    const Model = getModelByRole(role);
+    if (!Model) return res.status(400).json({ success: false, message: 'Invalid role' });
+
+    // In a real app with GOOGLE_CLIENT_ID set, use client.verifyIdToken.
+    // Here we can decode the token manually since it's a test environment or use verifyIdToken if ID is provided.
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, name, picture } = payload;
+
+    let entity = await Model.findOne({ email });
+    let isNewUser = false;
+
+    if (!entity) {
+      // Create new user
+      isNewUser = true;
+      const baseData = {
+        email,
+        name,
+        profileImage: picture,
+        isVerified: true,
+        phone: '0000000000',
+      };
+
+      // Set random password since it's required by schema but they'll use google
+      const randomPassword = crypto.randomBytes(16).toString('hex');
+      baseData.password = randomPassword;
+
+      if (role === 'merchant') {
+        baseData.businessName = name;
+        baseData.businessType = 'restaurant'; // default
+        baseData.contactPhone = '0000000000';
+      } else if (role === 'helping_center') {
+        baseData.centerName = name;
+        baseData.centerType = 'ngo';
+        baseData.contactPhone = '0000000000';
+      } else if (role === 'delivery_partner') {
+        baseData.vehicleType = 'bike';
+        baseData.vehicleNumber = 'NA';
+      } else if (role === 'user') {
+        baseData.role = 'user';
+      }
+
+      entity = await Model.create(baseData);
+    } else {
+      // Ensure the requested login role matches the entity's actual role
+      if (entity.role && entity.role !== role && role !== 'user') {
+        return res.status(401).json({ success: false, message: 'Role mismatch' });
+      }
+      if (!entity.isActive) return res.status(401).json({ success: false, message: 'Account is deactivated' });
+    }
+
+    const { accessToken, refreshToken } = generateTokens(entity._id, role);
+    entity.refreshToken = refreshToken;
+    await entity.save();
+
+    if (isNewUser) {
+      sendWelcomeEmail(entity.email, entity.name || entity.businessName, role).catch(console.error);
+    } else {
+      sendLoginAlertEmail(entity.email, entity.name || entity.businessName).catch(console.error);
+    }
+
+    res.json({
+      success: true,
+      message: isNewUser ? 'Registration successful' : 'Login successful',
+      data: entity,
+      accessToken,
+      refreshToken,
+    });
+  } catch (error) {
+    console.error('Google Auth Error:', error);
+    res.status(401).json({ success: false, message: 'Google authentication failed' });
   }
 };
 

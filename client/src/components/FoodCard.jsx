@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '../redux/slices/orderSlice';
 import toast from 'react-hot-toast';
 import { format, isAfter, isBefore, addHours } from 'date-fns';
+import { useState } from 'react';
 
 const statusColors = {
   available: 'badge-green',
@@ -23,9 +24,11 @@ const categoryEmojis = {
 export default function FoodCard({ food, viewMode = 'grid' }) {
   const dispatch = useDispatch();
   const { isAuthenticated, role } = useSelector((s) => s.auth);
+  const [imageError, setImageError] = useState(false);
 
   const isExpiringSoon = food.status === 'expiring_soon';
   const timeLeft = food.expiryTime ? format(new Date(food.expiryTime), 'h:mm a') : null;
+  const computedPrice = food.discountedPrice !== undefined ? food.discountedPrice : (food.originalPrice - (food.originalPrice * (food.discountPercentage || 0) / 100));
 
   const handleAddToCart = (e) => {
     e.preventDefault();
@@ -47,8 +50,8 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
         <Link to={`/food/${food._id}`} className="flex gap-4 p-4">
           {/* Image */}
           <div className="relative w-28 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-slate-100 dark:bg-dark-700">
-            {food.images?.[0] ? (
-              <img src={food.images[0]} alt={food.name} className="w-full h-full object-cover" />
+            {food.images?.[0] && !imageError ? (
+              <img src={food.images[0]} alt={food.name} className="w-full h-full object-cover" onError={() => setImageError(true)} />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-3xl">
                 {categoryEmojis[food.category] || '🍽️'}
@@ -70,7 +73,7 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
             </div>
             <div className="flex items-center gap-3 mt-2">
               <div className="flex items-center gap-1">
-                <span className="font-bold text-primary-600 dark:text-primary-400">₹{food.discountedPrice?.toFixed(0)}</span>
+                <span className="font-bold text-primary-600 dark:text-primary-400">₹{computedPrice.toFixed(0)}</span>
                 <span className="text-xs text-slate-400 line-through">₹{food.originalPrice}</span>
               </div>
               {timeLeft && (
@@ -109,11 +112,12 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
       <Link to={`/food/${food._id}`}>
         {/* Image */}
         <div className="relative h-44 overflow-hidden bg-slate-100 dark:bg-dark-700">
-          {food.images?.[0] ? (
+          {food.images?.[0] && !imageError ? (
             <img
               src={food.images[0]}
               alt={food.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={() => setImageError(true)}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-2">
@@ -172,7 +176,7 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
           <div className="flex items-center justify-between mb-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-primary-600 dark:text-primary-400">₹{food.discountedPrice?.toFixed(0)}</span>
+                <span className="font-bold text-lg text-primary-600 dark:text-primary-400">₹{computedPrice.toFixed(0)}</span>
                 <span className="text-xs text-slate-400 line-through">₹{food.originalPrice}</span>
               </div>
               <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">

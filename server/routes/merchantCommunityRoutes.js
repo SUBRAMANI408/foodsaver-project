@@ -39,6 +39,6 @@ router.route('/requests/:id/status')
   .patch(updateRequestStatus);
 
 router.route('/requests/:id/complete')
-  .post(completeRequest);
+  .patch(completeRequest);
 
 export default router;

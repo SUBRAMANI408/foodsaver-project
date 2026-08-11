@@ -13,6 +13,18 @@ export const fetchCommunityPosts = createAsyncThunk(
   }
 );
 
+export const fetchMerchantDirectory = createAsyncThunk(
+  'merchantCommunity/fetchDirectory',
+  async (nearby = false, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/community/directory${nearby ? '?nearby=true' : ''}`);
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch merchant directory');
+    }
+  }
+);
+
 export const createCommunityPost = createAsyncThunk(
   'merchantCommunity/createPost',
   async (postData, { rejectWithValue }) => {
@@ -89,6 +101,7 @@ const initialState = {
   posts: [],
   receivedRequests: [],
   sentRequests: [],
+  merchantDirectory: [],
   loading: false,
   error: null,
 };
@@ -113,7 +126,21 @@ const merchantCommunitySlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
+      // Fetch Directory
+      .addCase(fetchMerchantDirectory.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchMerchantDirectory.fulfilled, (state, action) => {
+        state.loading = false;
+        state.merchantDirectory = action.payload;
+      })
+      .addCase(fetchMerchantDirectory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
       // Create Post
       .addCase(createCommunityPost.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(createCommunityPost.fulfilled, (state, action) => {

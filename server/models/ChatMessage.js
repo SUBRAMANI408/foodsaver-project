@@ -4,8 +4,8 @@ const chatMessageSchema = new mongoose.Schema({
   conversationId: { type: String, required: true, index: true }, // format: 'req_{requirementId}_{ngoId}_{merchantId}'
   sender: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: 'senderModel' },
   senderModel: { type: String, required: true, enum: ['Merchant', 'HelpingCenter'] },
-  receiver: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: 'receiverModel' },
-  receiverModel: { type: String, required: true, enum: ['Merchant', 'HelpingCenter'] },
+  receiver: { type: mongoose.Schema.Types.ObjectId, refPath: 'receiverModel' },
+  receiverModel: { type: String, enum: ['Merchant', 'HelpingCenter'] },
   requirement: { type: mongoose.Schema.Types.ObjectId, ref: 'FoodRequirement' },
   type: {
     type: String,

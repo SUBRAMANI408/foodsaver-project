@@ -9,6 +9,17 @@ const getRoleModel = (role) => role === 'merchant' ? 'Merchant' : 'HelpingCenter
 
 // Helper: check if chat is allowed (only for accepted sponsorships)
 const verifyChatAccess = async (conversationId, userId) => {
+  if (conversationId === 'merchant_community_global') {
+    const merchant = await Merchant.findById(userId);
+    return !!merchant;
+  }
+
+  if (conversationId.startsWith('merch_')) {
+    const parts = conversationId.split('_');
+    if (parts.length < 3) return false;
+    return userId === parts[1] || userId === parts[2];
+  }
+
   // conversationId format: req_{requirementId}_{ngoId}_{merchantId}
   const parts = conversationId.split('_');
   if (parts.length < 4) return false;
@@ -33,51 +44,83 @@ const verifyChatAccess = async (conversationId, userId) => {
 export const getConversations = async (req, res, next) => {
   try {
     const userId = req.userId;
+    let conversations = [];
     
-    // Find all accepted sponsorships where this user is involved
-    let sponsorships;
     if (req.userRole === 'merchant') {
-      sponsorships = await Sponsorship.find({ merchant: userId, chatEnabled: true })
+      const sponsorships = await Sponsorship.find({ merchant: userId, chatEnabled: true })
         .populate('requirement', 'ngoName ngo mealType quantityRequired requiredDate addressText')
         .sort('-updatedAt');
+        
+      const spConversations = await Promise.all(sponsorships.map(async (sp) => {
+        const convId = sp.conversationId;
+        const latestMessage = await ChatMessage.findOne({ conversationId: convId }).sort('-createdAt');
+        const unreadCount = await ChatMessage.countDocuments({
+          conversationId: convId,
+          receiver: new mongoose.Types.ObjectId(userId),
+          isRead: false,
+        });
+        const otherParty = await HelpingCenter.findById(sp.requirement?.ngo).select('centerName name address phone logo');
+        return { conversationId: convId, sponsorship: sp, otherParty, latestMessage, unreadCount };
+      }));
+      conversations.push(...spConversations);
+
+      const globalLatest = await ChatMessage.findOne({ conversationId: 'merchant_community_global' }).sort('-createdAt');
+      conversations.push({
+        conversationId: 'merchant_community_global',
+        isGroup: true,
+        otherParty: { name: 'Global Merchant Community' },
+        latestMessage: globalLatest,
+        unreadCount: 0
+      });
+
+      const merchMessages = await ChatMessage.find({
+        $or: [{ sender: userId }, { receiver: userId }],
+        conversationId: { $regex: '^merch_' }
+      });
+      const merchConvIds = [...new Set(merchMessages.map(m => m.conversationId))];
+      
+      const merchConversations = await Promise.all(merchConvIds.map(async (convId) => {
+        const latestMessage = await ChatMessage.findOne({ conversationId: convId }).sort('-createdAt');
+        const unreadCount = await ChatMessage.countDocuments({
+          conversationId: convId,
+          receiver: new mongoose.Types.ObjectId(userId),
+          isRead: false,
+        });
+        const parts = convId.split('_');
+        const otherPartyId = parts[1] === userId ? parts[2] : parts[1];
+        const otherParty = await Merchant.findById(otherPartyId).select('name businessName logo address phone');
+        
+        return { conversationId: convId, isMerchantChat: true, otherParty, latestMessage, unreadCount };
+      }));
+      conversations.push(...merchConversations);
+      
     } else {
-      // NGO - find via requirement
       const FoodRequirement = (await import('../models/FoodRequirement.js')).default;
       const myReqs = await FoodRequirement.find({ ngo: userId }).select('_id');
       const reqIds = myReqs.map(r => r._id);
-      sponsorships = await Sponsorship.find({ requirement: { $in: reqIds }, chatEnabled: true })
+      const sponsorships = await Sponsorship.find({ requirement: { $in: reqIds }, chatEnabled: true })
         .populate('requirement', 'ngoName ngo mealType quantityRequired requiredDate addressText')
         .populate('merchant', 'businessName address phone logo')
         .sort('-updatedAt');
+        
+      const ngoConversations = await Promise.all(sponsorships.map(async (sp) => {
+        const convId = sp.conversationId;
+        const latestMessage = await ChatMessage.findOne({ conversationId: convId }).sort('-createdAt');
+        const unreadCount = await ChatMessage.countDocuments({
+          conversationId: convId,
+          receiver: new mongoose.Types.ObjectId(userId),
+          isRead: false,
+        });
+        return { conversationId: convId, sponsorship: sp, otherParty: sp.merchant, latestMessage, unreadCount };
+      }));
+      conversations = ngoConversations;
     }
     
-    // Build conversation list with latest message and unread count
-    const conversations = await Promise.all(sponsorships.map(async (sp) => {
-      const convId = sp.conversationId;
-      const latestMessage = await ChatMessage.findOne({ conversationId: convId })
-        .sort('-createdAt');
-      const unreadCount = await ChatMessage.countDocuments({
-        conversationId: convId,
-        receiver: new mongoose.Types.ObjectId(userId),
-        isRead: false,
-      });
-      
-      // Get the other party's info
-      let otherParty;
-      if (req.userRole === 'merchant') {
-        otherParty = await HelpingCenter.findById(sp.requirement?.ngo).select('centerName name address phone logo');
-      } else {
-        otherParty = sp.merchant;
-      }
-      
-      return {
-        conversationId: convId,
-        sponsorship: sp,
-        otherParty,
-        latestMessage,
-        unreadCount,
-      };
-    }));
+    conversations.sort((a, b) => {
+      const dateA = a.latestMessage ? new Date(a.latestMessage.createdAt).getTime() : 0;
+      const dateB = b.latestMessage ? new Date(b.latestMessage.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
     
     res.json({ success: true, data: conversations });
   } catch (error) {

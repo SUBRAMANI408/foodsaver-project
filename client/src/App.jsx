@@ -31,6 +31,8 @@ import MerchantAnalytics from './pages/merchant/MerchantAnalytics';
 import MerchantProfile from './pages/merchant/MerchantProfile';
 import CommunityFeed from './pages/merchant/CommunityFeed';
 import ManageRequests from './pages/merchant/ManageRequests';
+import MerchantDirectory from './pages/merchant/MerchantDirectory';
+import MerchantChat from './pages/merchant/MerchantChat';
 
 // Pages - Admin Dashboard
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -158,8 +160,9 @@ export default function App() {
           <Route path="donations" element={<MerchantSponsorships />} />
           <Route path="community" element={<CommunityFeed />} />
           <Route path="requests" element={<ManageRequests />} />
-          <Route path="chat" element={<ChatPage />} />
-          <Route path="chat/:conversationId" element={<ChatPage />} />
+          <Route path="directory" element={<MerchantDirectory />} />
+          <Route path="chat" element={<MerchantChat />} />
+          <Route path="chat/:conversationId" element={<MerchantChat />} />
           <Route path="reviews" element={<div className="text-slate-400 p-4">Reviews page coming soon...</div>} />
         </Route>
 

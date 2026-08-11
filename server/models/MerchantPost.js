@@ -11,35 +11,43 @@ const merchantPostSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  postType: {
+    type: String,
+    enum: ['excess_food', 'food_requirement', 'general'],
+    default: 'general'
+  },
+  scope: {
+    type: String,
+    enum: ['public', 'nearby', 'selected'],
+    default: 'public'
+  },
+  targetMerchants: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Merchant'
+  }],
   totalQuantity: {
     type: Number,
-    required: true,
     min: 1
   },
   availableQuantity: {
     type: Number,
-    required: true,
     min: 0
   },
   originalPrice: {
     type: Number,
-    required: true,
     min: 0
   },
   discountPercentage: {
     type: Number,
-    required: true,
     min: 0,
     max: 100
   },
   finalPrice: {
     type: Number,
-    required: true,
     min: 0
   },
   availableUntil: {
-    type: Date,
-    required: true
+    type: Date
   },
   status: {
     type: String,

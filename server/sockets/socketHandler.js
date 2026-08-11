@@ -23,6 +23,10 @@ export const setupSockets = (io) => {
     // Join personal room
     socket.join(`${socket.userRole}:${socket.userId}`);
     socket.join(`user_${socket.userId}`);
+    
+    if (socket.userRole === 'merchant') {
+      socket.join('chat:merchant_community_global');
+    }
 
     // Broadcast online status
     socket.broadcast.emit('user:online', { userId: socket.userId });

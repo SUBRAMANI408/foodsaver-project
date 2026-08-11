@@ -1,10 +1,19 @@
 import MerchantPost from '../models/MerchantPost.js';
 import MerchantRequest from '../models/MerchantRequest.js';
+import Merchant from '../models/Merchant.js';
 
 // getPosts: Fetch active MerchantPosts
 export const getPosts = async (req, res) => {
   try {
-    const posts = await MerchantPost.find({ status: 'active' }).populate('merchant', 'businessName name profileImage');
+    const posts = await MerchantPost.find({
+      status: 'active',
+      $or: [
+        { scope: 'public' },
+        { scope: 'nearby' },
+        { merchant: req.user._id },
+        { scope: 'selected', targetMerchants: req.user._id }
+      ]
+    }).populate('merchant', 'businessName name profileImage');
     res.status(200).json({ success: true, data: posts });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -14,7 +23,7 @@ export const getPosts = async (req, res) => {
 // createPost: Create a new MerchantPost
 export const createPost = async (req, res) => {
   try {
-    const { foodDetails, totalQuantity, originalPrice, discountPercentage, finalPrice, availableUntil } = req.body;
+    const { foodDetails, totalQuantity, originalPrice, discountPercentage, finalPrice, availableUntil, postType, scope, targetMerchants } = req.body;
     
     const post = new MerchantPost({
       merchant: req.user._id,
@@ -24,7 +33,10 @@ export const createPost = async (req, res) => {
       originalPrice,
       discountPercentage,
       finalPrice,
-      availableUntil
+      availableUntil,
+      postType,
+      scope,
+      targetMerchants
     });
 
     await post.save();
@@ -164,6 +176,31 @@ export const completeRequest = async (req, res) => {
     await request.save();
 
     res.status(200).json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// getDirectory: Fetch all other merchants
+export const getDirectory = async (req, res) => {
+  try {
+    const { nearby } = req.query;
+    let query = { _id: { $ne: req.user._id } };
+    
+    if (nearby === 'true') {
+      const currentMerchant = await Merchant.findById(req.user._id);
+      if (currentMerchant && currentMerchant.location && currentMerchant.location.coordinates.length === 2) {
+        query.location = {
+          $near: {
+            $geometry: currentMerchant.location,
+            $maxDistance: 10000 // 10km radius
+          }
+        };
+      }
+    }
+    
+    const merchants = await Merchant.find(query).select('name businessName location images businessType rating');
+    res.status(200).json({ success: true, data: merchants });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

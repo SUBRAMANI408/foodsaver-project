@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Search, Filter, Clock, MapPin, Tag, ChevronRight, X, AlertCircle, Plus } from 'lucide-react';
+import { Users, Search, MapPin, Tag, ChevronRight, X, AlertCircle, Plus, MessageSquare, Clock } from 'lucide-react';
 import { fetchCommunityPosts, sendFoodRequest } from '../../redux/slices/merchantCommunitySlice';
-import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
 import CreatePostModal from './CreatePostModal';
+import { useNavigate } from 'react-router-dom';
 
 const CommunityFeed = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { posts, loading, error } = useSelector(state => state.merchantCommunity);
+  const { user } = useSelector(state => state.auth);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('all'); // all, excess_food, food_requirement, general, mine
   const [selectedPost, setSelectedPost] = useState(null);
   const [requestQuantity, setRequestQuantity] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -19,11 +22,16 @@ const CommunityFeed = () => {
     dispatch(fetchCommunityPosts());
   }, [dispatch]);
 
-  const filteredPosts = posts?.filter(post => 
-    post.status === 'active' &&
-    (post.foodDetails.toLowerCase().includes(searchTerm.toLowerCase()) || 
-     post.merchant?.businessName?.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredPosts = posts?.filter(post => {
+    const matchesSearch = post.foodDetails.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          post.merchant?.businessName?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    if (activeTab === 'mine') return post.merchant?._id === user?.merchantId;
+    if (activeTab === 'all') return true;
+    return post.postType === activeTab;
+  });
 
   const handleSendRequest = async () => {
     if (!selectedPost || requestQuantity < 1) return;
@@ -42,6 +50,18 @@ const CommunityFeed = () => {
     }
   };
 
+  const getPostTypeBadge = (type) => {
+    switch(type) {
+      case 'excess_food':
+        return <span className="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-semibold">Excess Food</span>;
+      case 'food_requirement':
+        return <span className="bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full text-xs font-semibold">Requirement</span>;
+      case 'general':
+        return <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full text-xs font-semibold">General</span>;
+      default: return null;
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-dark-900">
       <div className="p-6 shrink-0 border-b border-slate-200 dark:border-dark-800 bg-white dark:bg-dark-950">
@@ -52,7 +72,7 @@ const CommunityFeed = () => {
               Merchant Community Feed
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1">
-              Find excess food shared by nearby merchants at discounted rates.
+              Connect, share, and request food with other merchants in the community.
             </p>
           </div>
           <button 
@@ -60,20 +80,40 @@ const CommunityFeed = () => {
             className="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium flex items-center gap-2 transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5" />
-            Post Excess Food
+            Create Post
           </button>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by food or merchant name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-slate-100 dark:bg-dark-900 border-none rounded-xl 
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search posts..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-100 dark:bg-dark-900 border-none rounded-xl 
 focus:ring-2 focus:ring-primary-500/20 outline-none text-slate-800 dark:text-white placeholder-slate-400"
-          />
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+            {['all', 'excess_food', 'food_requirement', 'general', 'mine'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
+                  activeTab === tab 
+                    ? 'bg-slate-800 text-white dark:bg-primary-600' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-dark-800 dark:text-slate-400'
+                }`}
+              >
+                {tab === 'all' ? 'All Posts' : 
+                 tab === 'excess_food' ? 'Excess Food' : 
+                 tab === 'food_requirement' ? 'Requests' : 
+                 tab === 'general' ? 'General' : 'My Posts'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -92,9 +132,9 @@ focus:ring-2 focus:ring-primary-500/20 outline-none text-slate-800 dark:text-whi
             <div className="w-20 h-20 bg-slate-100 dark:bg-dark-800 rounded-full flex items-center justify-center mb-4">
               <Search className="w-8 h-8 text-slate-400" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">No active posts found</h3>
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">No posts found</h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-md">
-              There are currently no excess food posts in your area. Check back later or post your own!
+              Try adjusting your search criteria or create a new post.
             </p>
           </div>
         ) : (
@@ -108,53 +148,93 @@ focus:ring-2 focus:ring-primary-500/20 outline-none text-slate-800 dark:text-whi
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-slate-200 dark:border-dark-700 
-hover:border-primary-500/30 transition-colors shadow-sm cursor-pointer"
-                  onClick={() => setSelectedPost(post)}
+hover:border-primary-500/30 transition-colors shadow-sm flex flex-col"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-semibold text-lg text-slate-800 dark:text-white line-clamp-1">
-                        {post.merchant?.businessName || 'Unknown Merchant'}
-                      </h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
-                        <MapPin className="w-3.5 h-3.5" />
-                        Nearby
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-bold">
+                        {post.merchant?.businessName?.charAt(0) || 'M'}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-800 dark:text-white line-clamp-1">
+                          {post.merchant?.businessName || 'Unknown Merchant'}
+                        </h3>
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          {post.scope === 'nearby' ? <MapPin className="w-3 h-3" /> : null}
+                          {post.scope === 'nearby' ? 'Nearby' : post.scope === 'selected' ? 'Selected Only' : 'Public'}
+                        </p>
+                      </div>
                     </div>
-                    {post.discountPercentage > 0 && (
-                      <span className="px-2.5 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 
-text-xs font-semibold rounded-full flex items-center gap-1">
-                        <Tag className="w-3 h-3" />
-                        {post.discountPercentage}% OFF
-                      </span>
+                    {getPostTypeBadge(post.postType)}
+                  </div>
+                  
+                  <div className="flex-1 mb-4">
+                    <p className="text-slate-700 dark:text-slate-300 font-medium mb-1 line-clamp-3">
+                      {post.foodDetails}
+                    </p>
+                    
+                    {post.postType !== 'general' && (
+                      <div className="flex flex-wrap items-center justify-between text-sm mt-4 gap-2">
+                        <div className="bg-slate-100 dark:bg-dark-900 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                          <span className="text-slate-500">{post.postType === 'excess_food' ? 'Remaining:' : 'Required:'}</span>
+                          <span className="font-bold text-primary-600 dark:text-primary-400">
+                            {post.postType === 'excess_food' ? post.availableQuantity : post.totalQuantity}
+                          </span>
+                        </div>
+                        {post.postType === 'excess_food' && post.originalPrice > 0 && (
+                          <div className="text-right flex items-center gap-2">
+                            {post.discountPercentage > 0 && (
+                              <span className="text-xs text-slate-400 line-through">₹{post.originalPrice}</span>
+                            )}
+                            <p className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-1">
+                              ₹{post.finalPrice}
+                              {post.discountPercentage > 0 && <span className="text-red-500 text-xs font-normal">(-{post.discountPercentage}%)</span>}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                   
-                  <div className="mb-4">
-                    <p className="text-slate-700 dark:text-slate-300 font-medium mb-1 line-clamp-2">
-                      {post.foodDetails}
-                    </p>
-                    <div className="flex items-center justify-between text-sm mt-3">
-                      <div className="bg-slate-100 dark:bg-dark-900 px-3 py-1.5 rounded-lg flex items-center gap-2">
-                        <span className="text-slate-500">Remaining:</span>
-                        <span className="font-bold text-primary-600 dark:text-primary-400">{post.availableQuantity}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-400 line-through">₹{post.originalPrice}</p>
-                        <p className="font-bold text-lg text-slate-800 dark:text-white">₹{post.finalPrice}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-dark-700 mt-2">
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-dark-700 mt-auto">
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                      <Clock className="w-3.5 h-3.5" />
-                      Until {new Date(post.availableUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      {post.availableUntil && (
+                        <>
+                          <Clock className="w-3.5 h-3.5" />
+                          {post.postType === 'excess_food' ? 'Until ' : 'By '}
+                          {new Date(post.availableUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </>
+                      )}
                     </div>
-                    <button className="text-primary-600 dark:text-primary-400 text-sm font-medium flex items-center hover:underline">
-                      Request
-                      <ChevronRight className="w-4 h-4 ml-0.5" />
-                    </button>
+                    
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => navigate(`/merchant/chat?merchantId=${post.merchant._id}`)}
+                        className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="Message"
+                      >
+                        <MessageSquare className="w-5 h-5" />
+                      </button>
+                      
+                      {post.postType === 'excess_food' && post.merchant?._id !== user?.merchantId && post.availableQuantity > 0 && (
+                        <button 
+                          onClick={() => setSelectedPost(post)}
+                          className="px-3 py-1.5 bg-primary-50 text-primary-600 text-sm font-medium rounded-lg hover:bg-primary-100 transition-colors flex items-center gap-1"
+                        >
+                          Request
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {post.postType === 'food_requirement' && post.merchant?._id !== user?.merchantId && (
+                        <button 
+                          onClick={() => navigate(`/merchant/chat?merchantId=${post.merchant._id}`)}
+                          className="px-3 py-1.5 bg-orange-50 text-orange-600 text-sm font-medium rounded-lg hover:bg-orange-100 transition-colors flex items-center gap-1"
+                        >
+                          Offer Food
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -196,14 +276,14 @@ text-xs font-semibold rounded-full flex items-center gap-1">
                   <h3 className="font-semibold text-slate-800 dark:text-white mb-2">{selectedPost.merchant?.businessName}</h3>
                   <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">{selectedPost.foodDetails}</p>
                   <div className="flex justify-between items-center text-sm border-t border-slate-200 dark:border-dark-700 pt-3">
-                    <span className="text-slate-500">Available: <strong className="text-slate-800 dark:text-white">{selectedPost.availableQuantity} meals</strong></span>
-                    <span className="font-bold text-primary-600">₹{selectedPost.finalPrice} / meal</span>
+                    <span className="text-slate-500">Available: <strong className="text-slate-800 dark:text-white">{selectedPost.availableQuantity}</strong></span>
+                    <span className="font-bold text-primary-600">₹{selectedPost.finalPrice} / item</span>
                   </div>
                 </div>
                 
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    How many meals do you need?
+                    Quantity Required
                   </label>
                   <input
                     type="number"
@@ -215,7 +295,7 @@ text-xs font-semibold rounded-full flex items-center gap-1">
 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all text-slate-800 dark:text-white"
                   />
                   <p className="text-xs text-slate-500 mt-2">
-                    Total Estimated Cost: <strong className="text-slate-800 dark:text-white">₹{selectedPost.finalPrice * requestQuantity}</strong>
+                    Total Estimated Cost: <strong className="text-slate-800 dark:text-white">₹{(selectedPost.finalPrice || 0) * requestQuantity}</strong>
                   </p>
                 </div>
                 

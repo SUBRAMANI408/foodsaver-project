@@ -8,7 +8,8 @@ import {
   getReceivedRequests,
   getSentRequests,
   updateRequestStatus,
-  completeRequest
+  completeRequest,
+  getDirectory
 } from '../controllers/merchantCommunityController.js';
 
 const router = express.Router();
@@ -16,6 +17,10 @@ const router = express.Router();
 // Apply auth middleware to all routes
 router.use(protect);
 router.use(authorize('merchant'));
+
+// Directory
+router.route('/directory')
+  .get(getDirectory);
 
 // Posts
 router.route('/posts')

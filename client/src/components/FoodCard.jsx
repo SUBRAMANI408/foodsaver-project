@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '../redux/slices/orderSlice';
 import toast from 'react-hot-toast';
 import { format, isAfter, isBefore, addHours } from 'date-fns';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import CountdownTimer from './CountdownTimer';
 
 const statusColors = {
@@ -27,7 +27,28 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
   const { isAuthenticated, role } = useSelector((s) => s.auth);
   const [imageError, setImageError] = useState(false);
 
-  const isExpiringSoon = food.status === 'expiring_soon';
+  // Real-time stock sync state
+  const [liveQuantity, setLiveQuantity] = useState(food.availableQuantity);
+  const [liveStatus, setLiveStatus] = useState(food.status);
+
+  useEffect(() => {
+    setLiveQuantity(food.availableQuantity);
+    setLiveStatus(food.status);
+  }, [food.availableQuantity, food.status]);
+
+  useEffect(() => {
+    const handleStockUpdate = (e) => {
+      const { foodId, availableQuantity, status } = e.detail;
+      if (foodId === food._id) {
+        setLiveQuantity(availableQuantity);
+        setLiveStatus(status);
+      }
+    };
+    window.addEventListener('food:stock_updated', handleStockUpdate);
+    return () => window.removeEventListener('food:stock_updated', handleStockUpdate);
+  }, [food._id]);
+
+  const isExpiringSoon = liveStatus === 'expiring_soon';
   const computedPrice = food.discountedPrice !== undefined ? food.discountedPrice : (food.originalPrice - (food.originalPrice * (food.discountPercentage || 0) / 100));
   const isShopClosed = food.merchant && food.merchant.isOpen === false;
 
@@ -58,9 +79,7 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
             {food.images?.[0] && !imageError ? (
               <img src={food.images[0]} alt={food.name} className="w-full h-full object-cover" onError={() => setImageError(true)} />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-3xl">
-                {categoryEmojis[food.category] || '🍽️'}
-              </div>
+              <img src="/fallback-food.jpg" alt={food.name} className="w-full h-full object-cover opacity-80" />
             )}
             <div className="absolute top-2 left-2">
               <span className="badge bg-primary-500 text-white text-xs font-bold">{food.discountPercentage}% OFF</span>
@@ -79,7 +98,7 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
                 <h3 className="font-semibold text-slate-900 dark:text-white text-sm truncate">{food.name}</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{food.merchant?.businessName}</p>
               </div>
-              <span className={`badge text-xs flex-shrink-0 ${statusColors[food.status]}`}>{food.status?.replace('_', ' ')}</span>
+              <span className={`badge text-xs flex-shrink-0 ${statusColors[liveStatus]}`}>{liveStatus?.replace('_', ' ')}</span>
             </div>
             <div className="flex items-center gap-3 mt-2">
               <div className="flex items-center gap-1">
@@ -94,7 +113,7 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
               )}
               <div className="flex items-center gap-1 text-xs text-slate-400">
                 <Tag className="w-3 h-3" />
-                {food.availableQuantity} left
+                {liveQuantity} left
               </div>
             </div>
           </div>
@@ -103,7 +122,7 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
           <div className="flex-shrink-0">
             <button
               onClick={handleAddToCart}
-              disabled={!['available', 'expiring_soon'].includes(food.status) || isShopClosed}
+              disabled={!['available', 'expiring_soon'].includes(liveStatus) || isShopClosed}
               className="btn-primary btn-sm disabled:opacity-40"
             >
               <ShoppingCart className="w-4 h-4" />
@@ -130,10 +149,7 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
               onError={() => setImageError(true)}
             />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-              <span className="text-4xl">{categoryEmojis[food.category] || '🍽️'}</span>
-              <span className="text-xs text-slate-400 capitalize">{food.category}</span>
-            </div>
+            <img src="/fallback-food.jpg" alt={food.name} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" />
           )}
 
           {/* Badges */}
@@ -150,8 +166,8 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
 
           {/* Status Badge */}
           <div className="absolute top-3 right-3">
-            <span className={`badge text-xs ${statusColors[food.status]}`}>
-              {food.status?.replace('_', ' ')}
+            <span className={`badge text-xs ${statusColors[liveStatus]}`}>
+              {liveStatus?.replace('_', ' ')}
             </span>
           </div>
 
@@ -196,7 +212,7 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
                 <span className="text-xs text-slate-400 line-through">₹{food.originalPrice}</span>
               </div>
               <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                <Tag className="w-3 h-3" /> {food.availableQuantity} {food.unit} left
+                <Tag className="w-3 h-3" /> {liveQuantity} {food.unit} left
               </div>
             </div>
             {food.expiryTime && (
@@ -210,11 +226,11 @@ export default function FoodCard({ food, viewMode = 'grid' }) {
           {/* Add to Cart Button */}
           <button
             onClick={handleAddToCart}
-            disabled={!['available', 'expiring_soon'].includes(food.status) || isShopClosed}
+            disabled={!['available', 'expiring_soon'].includes(liveStatus) || isShopClosed || liveQuantity <= 0}
             className="btn-primary w-full btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ShoppingCart className="w-3.5 h-3.5" />
-            {isShopClosed ? 'Shop Closed' : ['available', 'selling_fast', 'expiring_soon'].includes(food.status) ? 'Add to Cart' : (food.status || 'available').replace('_', ' ')}
+            {isShopClosed ? 'Shop Closed' : liveQuantity <= 0 ? 'Sold Out' : ['available', 'selling_fast', 'expiring_soon'].includes(liveStatus) ? 'Add to Cart' : (liveStatus || 'available').replace('_', ' ')}
           </button>
         </div>
       </Link>

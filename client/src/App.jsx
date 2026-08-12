@@ -133,14 +133,21 @@ export default function App() {
           // Also add to notifications list if needed
         };
 
+        const handleStockUpdate = (data) => {
+          // Dispatch a custom event so any mounted FoodCard can react
+          window.dispatchEvent(new CustomEvent('food:stock_updated', { detail: data }));
+        };
+
         socket.on('notification:new', handleNotification);
         socket.on('order:update', handleOrderUpdate);
         socket.on('order:new', handleOrderUpdate);
+        socket.on('food:stock_updated', handleStockUpdate);
 
         return () => {
           socket.off('notification:new', handleNotification);
           socket.off('order:update', handleOrderUpdate);
           socket.off('order:new', handleOrderUpdate);
+          socket.off('food:stock_updated', handleStockUpdate);
         };
       }
     }

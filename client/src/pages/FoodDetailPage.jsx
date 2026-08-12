@@ -120,9 +120,10 @@ export default function FoodDetailPage() {
                 src={food.images[activeImg]}
                 alt={food.name}
                 className="w-full h-full object-cover"
+                onError={(e) => { e.target.onerror = null; e.target.src = '/fallback-food.jpg'; }}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-8xl">🍛</div>
+              <img src="/fallback-food.jpg" alt={food.name} className="w-full h-full object-cover opacity-80" />
             )}
             {/* Badges */}
             <div className="absolute top-4 left-4 flex flex-col gap-2">

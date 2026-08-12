@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { ShoppingBag, Clock, CheckCircle, XCircle, Eye, Filter } from 'lucide-react';
+import { ShoppingBag, Clock, CheckCircle, XCircle, Eye, Filter, Search } from 'lucide-react';
 import { fetchMerchantOrders, updateOrderStatus } from '../../redux/slices/orderSlice';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -17,10 +17,23 @@ export default function MerchantOrders() {
   const dispatch = useDispatch();
   const { orders, loading } = useSelector((s) => s.orders);
   const [filter, setFilter] = useState('all');
+  const [searchToken, setSearchToken] = useState('');
 
   useEffect(() => { dispatch(fetchMerchantOrders({})); }, [dispatch]);
 
-  const filtered = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
+  // Filter orders by status tab, then by search token if present
+  const filtered = (() => {
+    let result = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
+    if (searchToken.trim()) {
+      const q = searchToken.trim().toLowerCase();
+      result = result.filter((o) =>
+        o.orderNumber?.toLowerCase().includes(q) ||
+        o.user?.name?.toLowerCase().includes(q) ||
+        o.user?.phone?.includes(q)
+      );
+    }
+    return result;
+  })();
 
   const handleStatusUpdate = async (orderId, status, note) => {
     const result = await dispatch(updateOrderStatus({ id: orderId, status, note }));
@@ -39,6 +52,29 @@ export default function MerchantOrders() {
           <span className="flex items-center gap-1"><div className="w-2 h-2 bg-orange-400 rounded-full" /> Pending: {orders.filter((o) => o.status === 'pending').length}</span>
           <span className="flex items-center gap-1"><div className="w-2 h-2 bg-primary-500 rounded-full" /> Active: {orders.filter((o) => ['confirmed', 'preparing', 'ready_for_pickup'].includes(o.status)).length}</span>
         </div>
+      </div>
+
+      {/* Verify Pickup Token Search */}
+      <div className="card p-4">
+        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">🔍 Verify Pickup Token</label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by order number, customer name, or phone..."
+            value={searchToken}
+            onChange={(e) => setSearchToken(e.target.value)}
+            className="input pl-10 w-full"
+          />
+          {searchToken && (
+            <button onClick={() => setSearchToken('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600">Clear</button>
+          )}
+        </div>
+        {searchToken.trim() && (
+          <p className="text-xs text-slate-500 mt-2">
+            {filtered.length === 0 ? '❌ No orders match this token.' : `✅ Found ${filtered.length} matching order(s).`}
+          </p>
+        )}
       </div>
 
       {/* Tabs */}

@@ -17,14 +17,34 @@ export const createOrder = async (req, res, next) => {
     let merchantId;
 
     for (const item of items) {
-      const food = await FoodItem.findById(item.foodItemId);
-      if (!food) return res.status(404).json({ success: false, message: `Food item ${item.foodItemId} not found` });
-      if (food.availableQuantity < item.quantity) {
-        return res.status(400).json({ success: false, message: `Insufficient quantity for ${food.name}` });
+      // Atomic claim: only succeeds if enough stock exists (race-condition safe)
+      const food = await FoodItem.findOneAndUpdate(
+        {
+          _id: item.foodItemId,
+          availableQuantity: { $gte: item.quantity },
+          status: { $ne: 'expired' },
+        },
+        { $inc: { availableQuantity: -item.quantity } },
+        { new: true }
+      );
+
+      if (!food) {
+        // Rollback any items already reserved in this order
+        for (const reserved of orderItems) {
+          await FoodItem.findByIdAndUpdate(reserved.foodItem, {
+            $inc: { availableQuantity: reserved.quantity },
+          });
+        }
+        const original = await FoodItem.findById(item.foodItemId);
+        const reason = !original ? 'not found' : original.status === 'expired' ? 'expired' : 'insufficient stock';
+        return res.status(400).json({ success: false, message: `Cannot claim item: ${reason}` });
       }
-      if (food.status === 'expired') {
-        return res.status(400).json({ success: false, message: `${food.name} has expired` });
+
+      // Mark as reserved if stock hit zero
+      if (food.availableQuantity <= 0) {
+        await FoodItem.findByIdAndUpdate(food._id, { status: 'reserved' });
       }
+
       merchantId = food.merchant;
       const itemTotal = food.discountedPrice * item.quantity;
       subtotal += itemTotal;
@@ -38,10 +58,11 @@ export const createOrder = async (req, res, next) => {
         image: food.images[0] || '',
       });
 
-      // Reserve the food
-      await FoodItem.findByIdAndUpdate(food._id, {
-        $inc: { availableQuantity: -item.quantity },
-        status: food.availableQuantity - item.quantity <= 0 ? 'reserved' : food.status,
+      // Broadcast real-time inventory update to all clients
+      req.io?.emit('food:stock_updated', {
+        foodId: food._id.toString(),
+        availableQuantity: food.availableQuantity,
+        status: food.availableQuantity <= 0 ? 'reserved' : food.status,
       });
     }
 
@@ -208,10 +229,19 @@ export const cancelOrder = async (req, res, next) => {
 
     // Restore food quantities
     for (const item of order.items) {
-      await FoodItem.findByIdAndUpdate(item.foodItem, { 
+      const restored = await FoodItem.findByIdAndUpdate(item.foodItem, { 
         $inc: { availableQuantity: item.quantity },
         status: 'available' 
-      });
+      }, { new: true });
+
+      // Broadcast real-time inventory restoration to all clients
+      if (restored) {
+        req.io?.emit('food:stock_updated', {
+          foodId: restored._id.toString(),
+          availableQuantity: restored.availableQuantity,
+          status: 'available',
+        });
+      }
     }
 
     order.status = 'cancelled';

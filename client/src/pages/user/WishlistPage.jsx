@@ -1,24 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, ShoppingBag } from 'lucide-react';
+import { Heart, ShoppingBag, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import FoodCard from '../../components/FoodCard'; // Verify if this component exists or adjust
+import FoodCard from '../../components/FoodCard';
+import { foodService } from '../../services';
 
 export default function WishlistPage() {
-  const [wishlist, setWishlist] = useState([]);
+  const [wishlistIds, setWishlistIds] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('wishlist')) || [];
-      setWishlist(stored);
-    } catch (e) {
-      console.error(e);
-    }
+    const fetchWishlist = async () => {
+      try {
+        const storedIds = JSON.parse(localStorage.getItem('wishlist')) || [];
+        setWishlistIds(storedIds);
+        
+        if (storedIds.length > 0) {
+          const items = await Promise.all(
+            storedIds.map(id => foodService.getOne(id).then(res => res.data.data).catch(() => null))
+          );
+          setWishlistItems(items.filter(item => item !== null));
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchWishlist();
   }, []);
 
   const removeFromWishlist = (foodId) => {
-    const updated = wishlist.filter(item => item._id !== foodId);
-    setWishlist(updated);
-    localStorage.setItem('wishlist', JSON.stringify(updated));
+    const updatedIds = wishlistIds.filter(id => id !== foodId);
+    setWishlistIds(updatedIds);
+    setWishlistItems(wishlistItems.filter(item => item._id !== foodId));
+    localStorage.setItem('wishlist', JSON.stringify(updatedIds));
   };
 
   return (
@@ -28,7 +44,9 @@ export default function WishlistPage() {
         <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">My Wishlist</h1>
       </div>
 
-      {wishlist.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 text-primary-500 animate-spin" /></div>
+      ) : wishlistItems.length === 0 ? (
         <div className="text-center py-16 bg-white dark:bg-dark-900 rounded-2xl border border-slate-100 dark:border-dark-800">
           <Heart className="w-16 h-16 mx-auto mb-4 text-slate-200 dark:text-dark-700" />
           <h3 className="font-display text-xl font-bold text-slate-900 dark:text-white mb-2">Your wishlist is empty</h3>
@@ -37,7 +55,7 @@ export default function WishlistPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {wishlist.map(food => (
+          {wishlistItems.map(food => (
             <div key={food._id} className="relative group">
               <FoodCard food={food} />
               <button 

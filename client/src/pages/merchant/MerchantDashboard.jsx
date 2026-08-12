@@ -5,9 +5,10 @@ import {
   Package, TrendingUp, DollarSign, ShoppingBag, Clock, Leaf,
   Users, Star, Plus, Eye, CheckCircle, XCircle, AlertCircle, Gift,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { fetchMerchantFood } from '../../redux/slices/foodSlice';
-import { fetchMerchantOrders } from '../../redux/slices/orderSlice';
+import { fetchMerchantOrders, updateOrderStatus } from '../../redux/slices/orderSlice';
+import toast from 'react-hot-toast';
 
 const StatCard = ({ icon: Icon, label, value, color, bg, change }) => (
   <motion.div whileHover={{ y: -2 }} className="stat-card">
@@ -41,6 +42,15 @@ export default function MerchantDashboard() {
     dispatch(fetchMerchantFood({ limit: 6 }));
     dispatch(fetchMerchantOrders({ limit: 10 }));
   }, [dispatch]);
+
+  const handleQuickAction = async (orderId, status) => {
+    const result = await dispatch(updateOrderStatus({ id: orderId, status }));
+    if (updateOrderStatus.fulfilled.match(result)) {
+      toast.success(`Order ${status === 'confirmed' ? 'accepted' : 'rejected'}!`);
+    } else {
+      toast.error('Failed to update order');
+    }
+  };
 
   const stats = [
     { icon: ShoppingBag, label: "Today's Orders", value: user?.totalOrders || 0, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-950/50', change: '+5 new' },
@@ -121,7 +131,8 @@ export default function MerchantDashboard() {
                     <p className="text-xs text-slate-400">{order.user?.name} • ₹{order.totalAmount}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Link to={`/merchant/orders/${order._id}`} className="btn-sm btn bg-primary-500 text-white text-xs">Accept</Link>
+                    <button onClick={() => handleQuickAction(order._id, 'confirmed')} className="btn-sm btn bg-primary-500 text-white text-xs">Accept</button>
+                    <button onClick={() => handleQuickAction(order._id, 'cancelled')} className="btn-sm btn bg-red-100 text-red-600 text-xs hover:bg-red-200">Reject</button>
                   </div>
                 </motion.div>
               ))}

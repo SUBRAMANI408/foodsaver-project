@@ -169,27 +169,8 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Google Auth */}
-          <div className="mb-6 flex justify-center">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => toast.error('Google login failed')}
-              useOneTap
-              theme="outline"
-              shape="pill"
-              text="continue_with"
-              size="large"
-            />
-          </div>
 
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200 dark:border-dark-800"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-slate-50 dark:bg-dark-950 text-slate-400">or sign in with email</span>
-            </div>
-          </div>
+
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
